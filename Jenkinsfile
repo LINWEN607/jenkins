@@ -82,21 +82,62 @@ pipeline {
             
         success{
             script{
-                println("流水线成功后，要做的事情")
+                // 钉钉推送：构建成功
+                dingtalk(
+                    robot: 'jenkins-dd', // 全局配置的机器人名称（需提前在 Jenkins 系统配置中设置）
+                    type: 'MARKDOWN',
+                    title: "✅ 构建成功: ${JOB_NAME}",
+                    text: [
+                        "### 构建成功通知\n",
+                        "- **项目**: ${JOB_NAME}\n",
+                        "- **构建号**: #${BUILD_NUMBER}\n",
+                        "- **状态**: SUCCESS\n",
+                        "- **持续时间**: ${currentBuild.durationString}\n",
+                        "- **触发人**: ${currentBuild.buildCauses[0].shortDescription}\n",
+                        "- **详情**: [查看构建](${BUILD_URL})"
+                    ]
+                )
             }
-            
         }
+            
         failure{
             script{
-                println("流水线失败后，要做的事情")
+                // 钉钉推送：构建失败
+                dingtalk(
+                    robot: 'jenkins-dd',
+                    type: 'MARKDOWN',
+                    title: "❌ 构建失败: ${JOB_NAME}",
+                    text: [
+                        "### 构建失败通知\n",
+                        "- **项目**: ${JOB_NAME}\n",
+                        "- **构建号**: #${BUILD_NUMBER}\n",
+                        "- **状态**: FAILURE\n",
+                        "- **持续时间**: ${currentBuild.durationString}\n",
+                        "- **触发人**: ${currentBuild.buildCauses[0].shortDescription}\n",
+                        "- **详情**: [查看构建](${BUILD_URL})"
+                    ]
+                )
             }
         }
             
         aborted{
             script{
-                println("流水线取消后，要做的事情")
+                // 钉钉推送：构建取消
+                dingtalk(
+                    robot: 'jenkins-dd',
+                    type: 'MARKDOWN',
+                    title: "🛑 构建取消: ${JOB_NAME}",
+                    text: [
+                        "### 构建取消通知\n",
+                        "- **项目**: ${JOB_NAME}\n",
+                        "- **构建号**: #${BUILD_NUMBER}\n",
+                        "- **状态**: ABORTED\n",
+                        "- **持续时间**: ${currentBuild.durationString}\n",
+                        "- **触发人**: ${currentBuild.buildCauses[0].shortDescription}\n",
+                        "- **详情**: [查看构建](${BUILD_URL})"
+                    ]
+                )
             }
-            
         }
     }
 }
