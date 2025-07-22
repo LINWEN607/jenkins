@@ -2,7 +2,7 @@
 
 def git_address = "git@101.132.137.193:trainingipmanagement/training-ip-demo.git"
 def git_auth = "10a4d4f3-1977-486c-945f-31cfcd8c04db"
-def git_branch = "dev"
+def git_branch = env.BRANCH_NAME 
 
 
 pipeline {
