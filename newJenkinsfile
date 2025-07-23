@@ -1,0 +1,28 @@
+#!/usr/bin/env groovy
+import groovy.transform.Field
+ 
+@Field def job_name=""
+ 
+node()
+{
+    // 获取当前job名称。也可以按需自定义
+    job_name="${env.JOB_NAME}".replace('%2F', '/').split('/')
+    job_name=job_name[0]
+  	def rootDir = pwd()
+  	echo "${rootDir}--${job_name}--${JOB_NAME}------${env.JOB_NAME}-----${BRANCH_NAME}-----${env.BRANCH_NAME}"
+    // 自定义workspace
+    workspace="workspace/${job_name}/${env.BRANCH_NAME}"
+ 
+    ws("$workspace")
+    {
+        dir("pipeline")
+        {   
+            // clone Jenkinsfile项目
+            checkout scmGit(branches: [[name: '*/dev']], extensions: [], userRemoteConfigs: [[credentialsId: 'git-root', url: 'https://gitlab.you.com/gitlab/devops/pipeline.git']])
+ 
+            // 根据job name、构建分支，自动加载对应的Jenkinsfile
+            def check_groovy_file="Jenkinsfile/${job_name}/${env.BRANCH_NAME}/Jenkinsfile"
+            load "${check_groovy_file}"
+        }
+    }
+}
