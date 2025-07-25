@@ -1,5 +1,3 @@
-#!/usr/bin/env groovy
-
 pipeline {
     agent {
         node {
@@ -8,11 +6,14 @@ pipeline {
     }
 
     tools {
-        go 'go1.23.0'  // 使用 Go 插件预装的 Go 版本（需在 Jenkins 全局工具配置中定义）
+        go 'go1.23.0'
     }
 
     environment {
         PATH = "${env.GOPATH}:${env.PATH}"
+        PROJECT_NAME = sh(script: """
+            echo ${env.GIT_URL} | awk -F'/' '{print $NF}' | sed 's/\\..*//'
+        """, returnStdout: true).trim()
     }
 
     stages {
@@ -36,11 +37,10 @@ pipeline {
             steps {
                 sh """
                     #!/bin/bash
-                    # 不需要手动设置 GOPATH 和 PATH，Go 插件已自动配置
                     cd ${env.WORKSPACE}
                     export GOPROXY=https://goproxy.cn,direct
-                    go build -o teset-server main.go
-                    cp teset-server /var/jenkins_home/teset-server
+                    go build -o ${env.PROJECT_NAME} main.go
+                    cp ${env.PROJECT_NAME} /var/jenkins_home/${env.PROJECT_NAME}
                 """
             }
         }
@@ -66,7 +66,7 @@ pipeline {
                         sh """
                             ssh -o StrictHostKeyChecking=no root@${config.host} "
                                 echo '开始查找并终止旧进程...'
-                                OLD_PID=\$(ps -ef | grep teset-server | grep -v grep | grep -v jenkins | awk '{print \$2}')
+                                OLD_PID=\$(ps -ef | grep ${env.PROJECT_NAME} | grep -v grep | grep -v jenkins | awk '{print \$2}')
                                 if [ -n \"\$OLD_PID\" ]; then
                                     echo \"找到旧进程 ID: \$OLD_PID，正在终止...\"
                                     sudo kill -9 \$OLD_PID || echo \"终止旧进程失败\"
@@ -79,18 +79,60 @@ pipeline {
                         // 部署新程序
                         sh """
                             echo '开始部署新程序...'
-                            scp /var/jenkins_home/teset-server root@${config.host}:${config.path}/
+                            scp /var/jenkins_home/${env.PROJECT_NAME} root@${config.host}:${config.path}/
                             ssh -o StrictHostKeyChecking=no root@${config.host} "
                                 echo '创建部署目录...'
                                 mkdir -p ${config.path}
                                 echo '启动新程序...'
                                 cd ${config.path} && 
-                                JENKINS_NODE_COOKIE=dontKillMe nohup ./teset-server > /dev/null 2>&1 &
+                                JENKINS_NODE_COOKIE=dontKillMe nohup ./${env.PROJECT_NAME} > /dev/null 2>&1 &
                             "
-                        """
+                        "
                     }
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            dingTalk (
+                robot: 'dev-robot',  // 引用系统配置的机器人 ID
+                message: """
+{
+    "msgtype": "markdown",
+    "markdown": {
+        "title": "构建成功",
+        "text": "### 🎉 构建成功\n\n" +
+                "项目名称: `\${env.PROJECT_NAME}`\n" +
+                "分支: `${env.BRANCH_NAME}`\n" +
+                "构建结果: 成功 ✅\n" +
+                "构建链接: [点击查看](${env.BUILD_URL})\n\n" +
+                "> 自动部署完成，请检查目标服务器状态。"
+    }
+}
+                """
+            )
+        }
+
+        failure {
+            dingTalk (
+                robot: 'dev-robot',
+                message: """
+{
+    "msgtype": "markdown",
+    "markdown": {
+        "title": "构建失败",
+        "text": "### ❌ 构建失败\n\n" +
+                "项目名称: `\${env.PROJECT_NAME}`\n" +
+                "分支: `${env.BRANCH_NAME}`\n" +
+                "构建结果: 失败 ❌\n" +
+                "构建链接: [点击查看](${env.BUILD_URL})\n\n" +
+                "> 请检查 Jenkins 日志以获取详细错误信息。"
+    }
+}
+                """
+            )
         }
     }
 }
