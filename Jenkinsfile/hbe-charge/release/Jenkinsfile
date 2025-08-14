@@ -72,28 +72,21 @@ pipeline {
                                 BASE_NAME="${env.PROJECT_NAME}"
                                 DEPLOY_PATH="${config.path}"
                                 FILE_PATH="${DEPLOY_PATH}/${BASE_NAME}"
-
+                                
                                 # 如果文件存在，则备份
                                 if [ -f "${FILE_PATH}" ]; then
                                     # 创建备份目录
                                     mkdir -p /data/backup/${BASE_NAME}
-
+                                    
                                     # 使用 cp 并添加时间后缀
                                     TIMESTAMP=$(date +%Y%m%d%H%M%S)
                                     BACKUP_FILE="/data/backup/${BASE_NAME}/${BASE_NAME}-${TIMESTAMP}"
                                     cp "${FILE_PATH}" "${BACKUP_FILE}"
                                     echo "已备份旧文件到: ${BACKUP_FILE}"
-
+                                    
                                     # 保留最多 3 个备份
-                                    cd "/data/backup/${BASE_NAME}/"
-                                    BACKUP_COUNT=$(ls -1t ${BASE_NAME}-* 2>/dev/null | wc -l)
-                                    if [ "$BACKUP_COUNT" -gt 3 ]; then
-                                        TO_DELETE=$(ls -1t ${BASE_NAME}-* | tail -n +4)
-                                        for file in $TO_DELETE; do
-                                            echo "删除旧备份: $file"
-                                            rm -f "$file"
-                                        done
-                                    fi
+                                    ls -t /data/backup/${BASE_NAME}/${BASE_NAME}-* 2>/dev/null | tail -n +4 | xargs -r rm -f
+                                    echo "已清理多余备份文件"
                                 else
                                     echo "未找到旧版本文件"
                                 fi
