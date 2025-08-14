@@ -42,42 +42,29 @@ pipeline {
         stage('2.判断修改模块') {
             steps {
                 script {
-                    def changedFiles = []
-                    if (env.GIT_PREVIOUS_SUCCESSFUL_COMMIT && env.GIT_PREVIOUS_SUCCESSFUL_COMMIT != "null") {
-                        changedFiles = sh(
-                            script: "git diff --name-only ${env.GIT_PREVIOUS_SUCCESSFUL_COMMIT} ${env.GIT_COMMIT}",
-                            returnStdout: true
-                        ).split('\n')
-                    } else {
-                        // 首次构建，获取所有文件
-                        changedFiles = sh(
-                            script: "git ls-files",
-                            returnStdout: true
-                        ).split('\n')
+                    // 获取所有文件的修改时间和文件名，找出最新的
+                    def latestFileInfo = sh(
+                        script: 'git ls-files -z | xargs -0 stat -c "%Y %n" | sort -nr | head -n 1',
+                        returnStdout: true
+                    ).trim()
+                    def latestFile = latestFileInfo.split(' ', 2)[1]
+
+                    def app = null
+                    if (latestFile.startsWith('app/backend/')) {
+                        app = 'backend'
+                    } else if (latestFile.startsWith('app/csms1.6/')) {
+                        app = 'csms1.6'
+                    } else if (latestFile.startsWith('app/frontend/')) {
+                        app = 'frontend'
+                    } else if (latestFile.startsWith('app/jobs/')) {
+                        app = 'jobs'
                     }
 
-                    def appsToBuild = []
-
-                    // 根据文件路径判断修改的子模块
-                    changedFiles.each { file ->
-                        if (file.startsWith('app/backend/') && !appsToBuild.contains('backend')) {
-                            appsToBuild.add('backend')
-                        } else if (file.startsWith('app/csms1.6/') && !appsToBuild.contains('csms1.6')) {
-                            appsToBuild.add('csms1.6')
-                        } else if (file.startsWith('app/frontend/') && !appsToBuild.contains('frontend')) {
-                            appsToBuild.add('frontend')
-                        } else if (file.startsWith('app/jobs/') && !appsToBuild.contains('jobs')) {
-                            appsToBuild.add('jobs')
-                        }
-                    }
-
-                    // 强制限制：每次只能修改一个模块
-                    if (appsToBuild.size() > 1) {
-                        error("不允许同时修改多个模块！当前修改的模块：${appsToBuild}")
-                    } else if (appsToBuild.size() == 0) {
+                    if (app == null) {
                         error("未检测到任何模块被修改，请检查提交内容。")
                     } else {
-                        env.APP_TO_BUILD = appsToBuild[0]  // 保存单个模块名
+                        env.APP_TO_BUILD = app
+                        echo "本次只构建最新修改文件所属模块: ${app}，文件为: ${latestFile}"
                     }
                 }
             }
@@ -158,7 +145,3 @@ pipeline {
                         """
                     }
                 }
-            }
-        }
-    }
-}
