@@ -6,7 +6,7 @@ pipeline {
     }
 
     tools {
-        go 'go1.23.0'
+        go 'go1.23'
     }
 
     environment {
@@ -39,7 +39,7 @@ pipeline {
                     #!/bin/bash
                     cd ${env.WORKSPACE}
                     export GOPROXY=https://goproxy.cn,direct
-                    go build -o ${env.PROJECT_NAME} main.go
+                    go build -o main main.go
                     cp ${env.PROJECT_NAME} /var/jenkins_home/${env.PROJECT_NAME}
                 """
             }
@@ -62,42 +62,27 @@ pipeline {
                     }
 
                     sshagent([config.sshCredentialId]) {
-                        // 杀死旧进程
-                        sh """
-                            ssh -o StrictHostKeyChecking=no root@${config.host} "
-                                echo '开始查找并终止旧进程...'
-                                OLD_PID=\$(ps -ef | grep ${env.PROJECT_NAME} | grep -v grep | grep -v jenkins | awk '{print \$2}')
-                                if [ -n \"\$OLD_PID\" ]; then
-                                    echo \"找到旧进程 ID: \$OLD_PID，正在终止...\"
-                                    sudo kill -9 \$OLD_PID || echo \"终止旧进程失败\"
-                                else
-                                    echo '未找到旧进程'
-                                fi
-                            "
-                        """
-
-                        // 备份旧版本文件（添加时间后缀，保留最多 3 个）
+                        // 备份旧版本文件（使用 cp + 时间后缀，保留最多 3 个）
                         sh """
                             ssh -o StrictHostKeyCheck=no root@${config.host} "
                                 echo '备份旧版本文件...'
                                 BASE_NAME=${env.PROJECT_NAME}
                                 DEPLOY_PATH=${config.path}
-                                BACKUP_DIR=/data/backup/\${BASE_NAME}
                                 FILE_PATH=\${DEPLOY_PATH}/\${BASE_NAME}
 
                                 # 如果文件存在，则备份
                                 if [ -f \"\$FILE_PATH\" ]; then
                                     # 创建备份目录
-                                    mkdir -p \$BACKUP_DIR
+                                    mkdir -p /data/backup/\${BASE_NAME}
 
-                                    # 添加时间后缀并移动到备份目录
+                                    # 使用 cp 并添加时间后缀
                                     TIMESTAMP=\$(date +%Y%m%d%H%M%S)
-                                    BACKUP_FILE=\${BACKUP_DIR}/\${BASE_NAME}-\${TIMESTAMP}
-                                    mv \"\$FILE_PATH\" \"\$BACKUP_FILE\"
-                                    echo '已备份旧文件到: \$BACKUP_FILE'
+                                    BACKUP_FILE=/data/backup/\${BASE_NAME}/\${BASE_NAME}-\${TIMESTAMP}
+                                    cp \"\$FILE_PATH\" \"\$BACKUP_FILE\"
+                                    echo "已备份旧文件到: $BACKUP_FILE"
 
                                     # 保留最多 3 个备份
-                                    BACKUP_FILES=(\$(ls -t \${BACKUP_DIR}/\${BASE_NAME}-* 2>/dev/null))
+                                    BACKUP_FILES=(\$(ls -t /data/backup/\${BASE_NAME}/\${BASE_NAME}-* 2>/dev/null))
                                     while [ \$#BACKUP_FILES -gt 3 ]; do
                                         OLDEST=\${BACKUP_FILES[-1]}
                                         echo '删除旧备份: \$OLDEST'
@@ -111,7 +96,7 @@ pipeline {
                             "
                         """
 
-                        // 部署新程序
+                        // 部署新程序并重启服务
                         sh """
                             echo '开始部署新程序...'
                             scp /var/jenkins_home/${env.PROJECT_NAME} root@${config.host}:${config.path}/
@@ -121,6 +106,9 @@ pipeline {
                                 echo '启动新程序...'
                                 cd ${config.path} && 
                                 JENKINS_NODE_COOKIE=dontKillMe nohup ./${env.PROJECT_NAME} > /dev/null 2>&1 &
+
+                                # 重启服务
+                                systemctl restart hbecharge_backend
                             "
                         """
                     }
