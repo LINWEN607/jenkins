@@ -43,8 +43,8 @@ pipeline {
                     ls -la
                     cd ${env.WORKSPACE}/app/backend
                     export GOPROXY=https://goproxy.cn,direct
-                    go build -o main main.go
-                    cp ${env.PROJECT_NAME} /var/jenkins_home/${env.PROJECT_NAME}
+                    go build -o main ./app/backend
+                    cp main /var/jenkins_home/${env.PROJECT_NAME}
                 """
             }
         }
