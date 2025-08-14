@@ -37,7 +37,7 @@ pipeline {
             steps {
                 sh """
                     #!/bin/bash
-                    cd ${env.WORKSPACE}
+                    cd ${env.WORKSPACE}/app/backend
                     export GOPROXY=https://goproxy.cn,direct
                     go build -o main main.go
                     cp ${env.PROJECT_NAME} /var/jenkins_home/${env.PROJECT_NAME}
