@@ -44,7 +44,7 @@ pipeline {
                 script {
                     // 获取最近一次提交的修改文件列表
                     def changedFiles = sh(
-                        script: 'git diff --name-only HEAD~1 HEAD',
+                        script: "git diff --name-only ${env.GIT_PREVIOUS_SUCCESSFUL_COMMIT} ${env.GIT_COMMIT}",
                         returnStdout: true
                     ).split('\n')
 
