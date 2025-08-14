@@ -11,12 +11,7 @@ pipeline {
 
     environment {
         PATH = "${env.GOPATH}:${env.PATH}"
-        PROJECT_NAME = sh(
-            script: """
-                echo ${env.GIT_URL} | awk -F'/' '{print $NF}' | sed 's/\\..*//'
-            """,
-            returnStdout: true
-        ).trim()
+        // PROJECT_NAME 不能在这里用 sh 动态赋值
     }
 
     stages {
@@ -26,12 +21,20 @@ pipeline {
                     def git_address = "http://192.168.30.111/lins/hbe-charge.git"
                     def git_auth = "git-root"
                     def git_branch = env.BRANCH_NAME
-                    
+
                     git(
                         branch: git_branch, 
                         credentialsId: git_auth, 
                         url: git_address
                     )
+
+                    // 在这里动态赋值 PROJECT_NAME
+                    env.PROJECT_NAME = sh(
+                        script: """
+                            echo ${env.GIT_URL} | awk -F'/' '{print \$NF}' | sed 's/\\..*//'
+                        """,
+                        returnStdout: true
+                    ).trim()
                 }
             }
         }
