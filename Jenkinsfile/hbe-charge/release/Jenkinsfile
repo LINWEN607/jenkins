@@ -67,36 +67,37 @@ pipeline {
                     sshagent([config.sshCredentialId]) {
                         // 备份旧版本文件（使用 cp + 时间后缀，保留最多 3 个）
                         sh """
-                            ssh -o StrictHostKeyCheck=no root@${config.host} "
-                                echo '备份旧版本文件...'
-                                BASE_NAME=${env.PROJECT_NAME}
-                                DEPLOY_PATH=${config.path}
-                                FILE_PATH=\${DEPLOY_PATH}/\${BASE_NAME}
+                            ssh -o StrictHostKeyCheck=no root@${config.host} '
+                                echo "备份旧版本文件..."
+                                BASE_NAME="${env.PROJECT_NAME}"
+                                DEPLOY_PATH="${config.path}"
+                                FILE_PATH="${DEPLOY_PATH}/${BASE_NAME}"
 
                                 # 如果文件存在，则备份
-                                if [ -f \"\$FILE_PATH\" ]; then
+                                if [ -f "${FILE_PATH}" ]; then
                                     # 创建备份目录
-                                    mkdir -p /data/backup/\${BASE_NAME}
+                                    mkdir -p /data/backup/${BASE_NAME}
 
                                     # 使用 cp 并添加时间后缀
-                                    TIMESTAMP=\$(date +%Y%m%d%H%M%S)
-                                    BACKUP_FILE=/data/backup/\${BASE_NAME}/\${BASE_NAME}-\${TIMESTAMP}
-                                    cp \"\$FILE_PATH\" \"\$BACKUP_FILE\"
-                                    echo '已备份旧文件到: \$BACKUP_FILE'
+                                    TIMESTAMP=$(date +%Y%m%d%H%M%S)
+                                    BACKUP_FILE="/data/backup/${BASE_NAME}/${BASE_NAME}-${TIMESTAMP}"
+                                    cp "${FILE_PATH}" "${BACKUP_FILE}"
+                                    echo "已备份旧文件到: ${BACKUP_FILE}"
 
                                     # 保留最多 3 个备份
-                                    BACKUP_FILES=(\\\$(ls -t /data/backup/\\\${BASE_NAME}/\\\${BASE_NAME}-* 2>/dev/null))
-                                    while [ \${#BACKUP_FILES[@]} -gt 3 ]; do
-                                        OLDEST=\${BACKUP_FILES[-1]}
-                                        echo '删除旧备份: \$OLDEST'
-                                        rm -f \"\$OLDEST\"
-                                        unset BACKUP_FILES[-1]
-                                        BACKUP_FILES=(\${BACKUP_FILES[@]})
-                                    done
+                                    cd "/data/backup/${BASE_NAME}/"
+                                    BACKUP_COUNT=$(ls -1t ${BASE_NAME}-* 2>/dev/null | wc -l)
+                                    if [ "$BACKUP_COUNT" -gt 3 ]; then
+                                        TO_DELETE=$(ls -1t ${BASE_NAME}-* | tail -n +4)
+                                        for file in $TO_DELETE; do
+                                            echo "删除旧备份: $file"
+                                            rm -f "$file"
+                                        done
+                                    fi
                                 else
-                                    echo '未找到旧版本文件'
+                                    echo "未找到旧版本文件"
                                 fi
-                            "
+                            '
                         """
 
                         // 部署新程序并重启服务
