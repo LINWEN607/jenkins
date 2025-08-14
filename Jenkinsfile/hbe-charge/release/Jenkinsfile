@@ -115,7 +115,7 @@ pipeline {
 
                     sshagent([config.sshCredentialId]) {
                         // 备份旧版本文件
-                        sh """
+                        sh '''
                             ssh -o StrictHostKeyChecking=no root@${config.host} '
                                 echo "备份旧版本文件..."
                                 BASE_NAME="$1"
@@ -133,7 +133,7 @@ pipeline {
                                     echo "未找到旧版本文件"
                                 fi
                             ' '${env.PROJECT_NAME}' '${remotePath}'
-                        """
+                        '''
 
                         // 部署新程序并重启服务
                         sh """
