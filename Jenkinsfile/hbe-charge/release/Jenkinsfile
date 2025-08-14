@@ -120,45 +120,4 @@ pipeline {
         }
     }
 
-    post {
-        success {
-            dingtalk (
-                robot: 'dev-robot',  // 引用系统配置的机器人 ID
-                message: """
-{
-    "msgtype": "markdown",
-    "markdown": {
-        "title": "构建成功",
-        "text": "### 🎉 构建成功\n\n" +
-                "项目名称: `\${env.PROJECT_NAME}`\n" +
-                "分支: `${env.BRANCH_NAME}`\n" +
-                "构建结果: 成功 ✅\n" +
-                "构建链接: [点击查看](${env.BUILD_URL})\n\n" +
-                "> 自动部署完成，请检查目标服务器状态。"
-    }
-}
-                """
-            )
-        }
-
-        failure {
-            dingtalk (
-                robot: 'dev-robot',
-                message: """
-{
-    "msgtype": "markdown",
-    "markdown": {
-        "title": "构建失败",
-        "text": "### ❌ 构建失败\n\n" +
-                "项目名称: `\${env.PROJECT_NAME}`\n" +
-                "分支: `${env.BRANCH_NAME}`\n" +
-                "构建结果: 失败 ❌\n" +
-                "构建链接: [点击查看](${env.BUILD_URL})\n\n" +
-                "> 请检查 Jenkins 日志以获取详细错误信息。"
-    }
-}
-                """
-            )
-        }
-    }
-}
+  
