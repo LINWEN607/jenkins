@@ -41,7 +41,6 @@ pipeline {
                     echo "工作空间目录: ${env.WORKSPACE}"
                     echo "目录结构:"
                     ls -la
-                    cd ${env.WORKSPACE}/app/backend
                     export GOPROXY=https://goproxy.cn,direct
                     go build -o main ./app/backend
                     cp main /var/jenkins_home/${env.PROJECT_NAME}
