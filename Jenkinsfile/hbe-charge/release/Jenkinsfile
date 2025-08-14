@@ -89,27 +89,27 @@ pipeline {
         }
 
         stage('4.部署程序') {
-            steps {
-                script {
-                    def deployConfig = [
-                        release: [host: "192.168.30.111", sshCredentialId: "test-ssh-key"],
-                        main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
-                        prod: [host: "192.168.1.30", sshCredentialId: "prod-ssh-key"]
-                    ]
+    steps {
+        script {
+            def deployConfig = [
+                release: [host: "192.168.30.111", sshCredentialId: "test-ssh-key"],
+                main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
+                prod: [host: "192.168.1.30", sshCredentialId: "prod-ssh-key"]
+            ]
 
-                    def targetBranch = env.BRANCH_NAME
-                    def config = deployConfig[targetBranch]
+            def targetBranch = env.BRANCH_NAME
+            def config = deployConfig[targetBranch]
 
-                    if (!config) {
-                        error("未配置该分支的部署信息: ${targetBranch}")
-                    }
+            if (!config) {
+                error("未配置该分支的部署信息: ${targetBranch}")
+            }
 
-                    def app = env.APP_TO_BUILD
-                    def remotePath = "/usr/local/www/go/hbe-charge/app/${app}"  // 动态拼接模块路径
+            def app = env.APP_TO_BUILD
+            def remotePath = "/usr/local/www/go/hbe-charge/app/${app}"  // 动态拼接模块路径
 
-                    sshagent([config.sshCredentialId]) {
-                        // 备份旧版本文件
-                        sh """
+            sshagent([config.sshCredentialId]) {
+                // 备份旧版本文件
+                sh """
                     ssh -o StrictHostKeyChecking=no root@${config.host} '
                         echo "备份旧版本文件..."
                         BASE_NAME="${env.PROJECT_NAME}"
@@ -128,21 +128,20 @@ pipeline {
                         fi
                     '
                 """
-                        // 部署新程序并重启服务
-                        sh """
-                            echo '开始部署模块: ${app}...'
-                            scp /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
-                            ssh -o StrictHostKeyChecking=no root@${config.host} "
-                                echo '启动新程序...'
-                                cd ${remotePath} && 
-                                JENKINS_NODE_COOKIE=dontKillMe nohup ./main > /dev/null 2>&1 &
 
-                                # 重启服务
-                                systemctl restart hbecharge_${app}
-                            "
-                        """
-                    }
-                }
+                // 部署新程序并重启服务
+                sh """
+                    echo '开始部署模块: ${app}...'
+                    scp /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
+                    ssh -o StrictHostKeyChecking=no root@${config.host} "
+                        echo '启动新程序...'
+                        cd ${remotePath} && 
+                        JENKINS_NODE_COOKIE=dontKillMe nohup ./main > /dev/null 2>&1 &
+
+                        # 重启服务
+                        systemctl restart hbecharge_${app}
+                    "
+                """
             }
         }
     }
