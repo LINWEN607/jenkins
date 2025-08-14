@@ -33,28 +33,68 @@ pipeline {
             }
         }
 
-        stage('2.编译程序') {
+        stage('2.判断修改模块') {
             steps {
-                sh """
-                    #!/bin/bash
-                    echo "当前工作目录: \$(pwd)"
-                    echo "工作空间目录: ${env.WORKSPACE}"
-                    echo "目录结构:"
-                    ls -la
-                    export GOPROXY=https://goproxy.cn,direct
-                    go build -o main ./app/backend
-                    cp main /var/jenkins_home/main
-                """
+                script {
+                    // 获取最近一次提交的修改文件列表
+                    def changedFiles = sh(
+                        script: 'git diff --name-only HEAD~1 HEAD',
+                        returnStdout: true
+                    ).split('\n')
+
+                    def appsToBuild = []
+
+                    // 根据文件路径判断修改的子模块
+                    changedFiles.each { file ->
+                        if (file.startsWith('app/backend/') && !appsToBuild.contains('backend')) {
+                            appsToBuild.add('backend')
+                        } else if (file.startsWith('app/csms1.6/') && !appsToBuild.contains('csms1.6')) {
+                            appsToBuild.add('csms1.6')
+                        } else if (file.startsWith('app/frontend/') && !appsToBuild.contains('frontend')) {
+                            appsToBuild.add('frontend')
+                        } else if (file.startsWith('app/jobs/') && !appsToBuild.contains('jobs')) {
+                            appsToBuild.add('jobs')
+                        }
+                    }
+
+                    // 强制限制：每次只能修改一个模块
+                    if (appsToBuild.size() > 1) {
+                        error("不允许同时修改多个模块！当前修改的模块：${appsToBuild}")
+                    } else if (appsToBuild.size() == 0) {
+                        error("未检测到任何模块被修改，请检查提交内容。")
+                    } else {
+                        env.APP_TO_BUILD = appsToBuild[0]  // 保存单个模块名
+                    }
+                }
             }
         }
 
-        stage('3.部署程序') {
+        stage('3.编译程序') {
+            steps {
+                script {
+                    def app = env.APP_TO_BUILD
+
+                    // 进入对应子模块目录并构建
+                    sh """
+                        echo '开始构建模块: ${app}'
+                        cd app/${app}
+                        export GOPROXY=https://goproxy.cn,direct
+                        go build -o main main.go
+                        # 将模块的二进制文件保存到独立目录
+                        mkdir -p /var/jenkins_home/${app}
+                        cp main /var/jenkins_home/${app}/
+                    """
+                }
+            }
+        }
+
+        stage('4.部署程序') {
             steps {
                 script {
                     def deployConfig = [
-                        release: [host: "192.168.30.111", path: "/usr/local/www/go/hbe-charge/app/backend", sshCredentialId: "test-ssh-key"],
-                        main: [host: "192.168.0.210", path: "/home/main/teset-server", sshCredentialId: "main-ssh-key"],
-                        prod: [host: "192.168.1.30", path: "/home/prod/training-ip-demo", sshCredentialId: "prod-ssh-key"]
+                        release: [host: "192.168.30.111", sshCredentialId: "test-ssh-key"],
+                        main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
+                        prod: [host: "192.168.1.30", sshCredentialId: "prod-ssh-key"]
                     ]
 
                     def targetBranch = env.BRANCH_NAME
@@ -64,23 +104,41 @@ pipeline {
                         error("未配置该分支的部署信息: ${targetBranch}")
                     }
 
+                    def app = env.APP_TO_BUILD
+                    def remotePath = "/usr/local/www/go/hbe-charge/app/${app}"  // 动态拼接模块路径
+
                     sshagent([config.sshCredentialId]) {
-                        // 备份旧版本文件（使用 cp + 时间后缀，保留最多 3 个）
-                        sh "ssh -o StrictHostKeyCheck=no root@${config.host} 'echo \"备份旧版本文件...\" && BASE_NAME=\"${env.PROJECT_NAME}\" && DEPLOY_PATH=\"${config.path}\" && FILE_PATH=\"\${DEPLOY_PATH}/\${BASE_NAME}\" && if [ -f \"\${FILE_PATH}\" ]; then mkdir -p /data/backup/\${BASE_NAME} && TIMESTAMP=\$(date +%Y%m%d%H%M%S) && BACKUP_FILE=\"/data/backup/\${BASE_NAME}/\${BASE_NAME}-\${TIMESTAMP}\" && cp \"\${FILE_PATH}\" \"\${BACKUP_FILE}\" && echo \"已备份旧文件到: \${BACKUP_FILE}\" && ls -t /data/backup/\${BASE_NAME}/\${BASE_NAME}-* 2>/dev/null | tail -n +4 | xargs -r rm -f && echo \"已清理多余备份文件\"; else echo \"未找到旧版本文件\"; fi'"
+                        // 备份旧版本文件
+                        sh """
+                            ssh -o StrictHostKeyChecking=no root@${config.host} '
+                                echo "备份旧版本文件..."
+                                DEPLOY_PATH="${remotePath}"
+                                FILE_PATH="${DEPLOY_PATH}/main"
+                                if [ -f "\$FILE_PATH" ]; then
+                                    mkdir -p /data/backup/hbe-charge/${app}
+                                    TIMESTAMP=\$(date +%Y%m%d%H%M%S)
+                                    BACKUP_FILE="/data/backup/hbe-charge/${app}/main-\$TIMESTAMP"
+                                    cp "\$FILE_PATH" "\$BACKUP_FILE"
+                                    echo "已备份旧文件到: \$BACKUP_FILE"
+                                    ls -t /data/backup/hbe-charge/${app}/main-* 2>/dev/null | tail -n +4 | xargs -r rm -f
+                                    echo "已清理多余备份文件"
+                                else
+                                    echo "未找到旧版本文件"
+                                fi
+                            '
+                        """
 
                         // 部署新程序并重启服务
                         sh """
-                            echo '开始部署新程序...'
-                            scp /var/jenkins_home/${env.PROJECT_NAME} root@${config.host}:${config.path}/
-                            ssh -o StrictHostKeyCheck=no root@${config.host} "
-                                echo '创建部署目录...'
-                                mkdir -p ${config.path}
+                            echo '开始部署模块: ${app}...'
+                            scp /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
+                            ssh -o StrictHostKeyChecking=no root@${config.host} "
                                 echo '启动新程序...'
-                                cd ${config.path} && 
-                                JENKINS_NODE_COOKIE=dontKillMe nohup ./${env.PROJECT_NAME} > /dev/null 2>&1 &
+                                cd ${remotePath} && 
+                                JENKINS_NODE_COOKIE=dontKillMe nohup ./main > /dev/null 2>&1 &
 
                                 # 重启服务
-                                systemctl restart hbecharge_backend
+                                systemctl restart hbecharge_${app}
                             "
                         """
                     }
