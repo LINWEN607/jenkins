@@ -43,7 +43,7 @@ pipeline {
                     ls -la
                     export GOPROXY=https://goproxy.cn,direct
                     go build -o main ./app/backend
-                    cp main /var/jenkins_home/${env.PROJECT_NAME}
+                    cp main /var/jenkins_home/main
                 """
             }
         }
@@ -82,11 +82,11 @@ pipeline {
                                     TIMESTAMP=\$(date +%Y%m%d%H%M%S)
                                     BACKUP_FILE=/data/backup/\${BASE_NAME}/\${BASE_NAME}-\${TIMESTAMP}
                                     cp \"\$FILE_PATH\" \"\$BACKUP_FILE\"
-                                    echo "已备份旧文件到: \$$BACKUP_FILE"
+                                    echo '已备份旧文件到: \$BACKUP_FILE'
 
                                     # 保留最多 3 个备份
                                     BACKUP_FILES=(\$(ls -t /data/backup/\${BASE_NAME}/\${BASE_NAME}-* 2>/dev/null))
-                                    while [ \$#BACKUP_FILES -gt 3 ]; do
+                                    while [ \${#BACKUP_FILES[@]} -gt 3 ]; do
                                         OLDEST=\${BACKUP_FILES[-1]}
                                         echo '删除旧备份: \$OLDEST'
                                         rm -f \"\$OLDEST\"
