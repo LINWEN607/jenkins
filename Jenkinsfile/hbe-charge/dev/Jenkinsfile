@@ -18,7 +18,7 @@ pipeline {
         stage('1.拉取代码') {
             steps {
                 script {
-                    def git_address = "http://192.168.30.111/lins/hbe-charge.git"
+                    def git_address = "http://10.255.5.150/cloud-platform/hbe-charge.git"
                     def git_auth = "git-root"
                     def git_branch = env.BRANCH_NAME
 

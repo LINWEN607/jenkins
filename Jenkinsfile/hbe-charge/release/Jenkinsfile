@@ -18,7 +18,7 @@ pipeline {
         stage('1.拉取代码') {
             steps {
                 script {
-                    def git_address = "http://192.168.30.111/lins/hbe-charge.git"
+                    def git_address = "http://10.255.5.150/cloud-platform/hbe-charge.git"
                     def git_auth = "git-root"
                     def git_branch = env.BRANCH_NAME
 
@@ -93,7 +93,7 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        release: [host: "192.168.30.111", sshCredentialId: "test-ssh-key"],
+                        release: [host: "120.77.170.190", sshCredentialId: "dev-ssh-key", port: "1022"],
                         main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
                         prod: [host: "192.168.1.30", sshCredentialId: "prod-ssh-key"]
                     ]
@@ -106,12 +106,12 @@ pipeline {
                     }
 
                     def app = env.APP_TO_BUILD
-                    def remotePath = "/usr/local/www/go/hbe-charge/app/${app}"
+                    def remotePath = "/usr/local/www/go/src/hbe-charge/app/${app}"
 
                     sshagent([config.sshCredentialId]) {
                         // 备份旧版本文件
                         sh """
-                            ssh -o StrictHostKeyChecking=no root@${config.host} '
+                            ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
                                 BASE_NAME="hbe-charge"
                                 DEPLOY_PATH="${remotePath}"
                                 FILE_PATH="\$DEPLOY_PATH/main"
@@ -133,8 +133,8 @@ pipeline {
                         // 部署新程序并重启服务
                         sh """
                             echo '开始部署模块: ${app}...'
-                            scp /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
-                            ssh -o StrictHostKeyChecking=no root@${config.host} "
+                            scp -P ${config.port} /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
+                            ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                 echo '启动新程序...'
                                 cd ${remotePath} && 
                                 JENKINS_NODE_COOKIE=dontKillMe nohup ./main > /dev/null 2>&1 &
