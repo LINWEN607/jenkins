@@ -117,12 +117,12 @@ pipeline {
                                 FILE_PATH="$DEPLOY_PATH/main"
                                 echo "备份旧版本文件..."
                                 if [ -f "\$FILE_PATH" ]; then
-                                    mkdir -p /data/backup/\$BASE_NAME
+                                    mkdir -p /data/backup/\${env.PROJECT_NAME}/${app}
                                     TIMESTAMP=\$(date +%Y%m%d%H%M%S)
                                     BACKUP_FILE="/data/backup/\${env.PROJECT_NAME}/${app}/\$BASE_NAME-\$TIMESTAMP"
                                     cp "\$FILE_PATH" "\$BACKUP_FILE"
                                     echo "已备份旧文件到: \$BACKUP_FILE"
-                                    ls -t /data/backup/\$BASE_NAME/\$BASE_NAME-* 2>/dev/null | tail -n +4 | xargs -r rm -f
+                                    ls -t /data/backup/\${env.PROJECT_NAME}/${app}/\$BASE_NAME-* 2>/dev/null | tail -n +4 | xargs -r rm -f
                                     echo "已清理多余备份文件"
                                 else
                                     echo "未找到旧版本文件"
