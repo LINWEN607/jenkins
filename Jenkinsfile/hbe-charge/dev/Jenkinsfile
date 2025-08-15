@@ -163,6 +163,7 @@ pipeline {
                     
 - **项目名称**：${env.PROJECT_NAME}
 - **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建成功
 - **任务持续时间**：${currentBuild.durationString}
 
@@ -170,7 +171,7 @@ pipeline {
 > 构建人：${buildUser}
 
 **操作建议**：
-- 可以到对应项目分支的环境测试验证功能"""
+- 可到对应项目分支的环境测试验证功能。（/data/backup/hbe-charge/服务名称）此路径备份此前三个版本的编译文件，可按时间戳区分"""
                     ]
                 )
             }
@@ -188,6 +189,7 @@ pipeline {
                     
 - **项目名称**：${env.PROJECT_NAME}
 - **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建失败
 - **任务持续时间**：${currentBuild.durationString}
 
@@ -195,7 +197,7 @@ pipeline {
 > 构建人：${buildUser}
 
 **操作建议**：
-- 请检查[构建日志](${env.JOB_URL}console)或联系林文进行排查"""
+- 请联系林文进行排查"""
                     ]
                 )
             }
@@ -212,9 +214,8 @@ pipeline {
                         """###  构建不稳定
                     
 - **项目名称**：${env.PROJECT_NAME}
-- **项目地址**：[查看项目](${env.PROJECT_URL})
 - **任务名称**：${env.JOB_NAME}
-- **任务地址**：[查看任务](${env.JOB_URL})
+- **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建不稳定
 - **任务持续时间**：${currentBuild.durationString}
 
@@ -222,7 +223,7 @@ pipeline {
 > 构建人：${buildUser}
 
 **操作建议**：
-- 请检查[构建日志](${env.JOB_URL}console)或联系林文进行排查"""
+- 请联系林文进行排查"""
                     ]
                 )
             }
@@ -239,9 +240,8 @@ pipeline {
                         """###  构建被中止
                     
 - **项目名称**：${env.PROJECT_NAME}
-- **项目地址**：[查看项目](${env.PROJECT_URL})
 - **任务名称**：${env.JOB_NAME}
-- **任务地址**：[查看任务](${env.JOB_URL})
+- **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建中止
 - **任务持续时间**：${currentBuild.durationString}
 
