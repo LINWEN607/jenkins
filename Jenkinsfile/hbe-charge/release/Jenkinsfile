@@ -114,7 +114,7 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no root@${config.host} '
                                 BASE_NAME="${env.PROJECT_NAME}"
                                 DEPLOY_PATH="${remotePath}"
-                                FILE_PATH="$DEPLOY_PATH/main"
+                                FILE_PATH="\$DEPLOY_PATH/main"
                                 echo "备份旧版本文件..."
                                 if [ -f "\$FILE_PATH" ]; then
                                     mkdir -p /data/backup/\${env.PROJECT_NAME}/${app}
