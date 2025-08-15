@@ -148,4 +148,103 @@ pipeline {
             }
         }
     }
+
+
+    post {
+        success {
+            dingtalk (
+                robot: 'cicd构建推送',
+                type: 'MARKDOWN',
+                title: '构建成功通知',
+                text: [
+                    '''###  构建成功
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **项目地址**：[查看项目](${env.PROJECT_URL})
+- **任务名称**：${env.JOB_NAME}
+- **任务地址**：[查看任务](${env.JOB_URL})
+- **任务状态**：构建成功
+- **任务持续时间**：${currentBuild.durationString}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${BUILD_USER}
+
+**操作建议**：
+- 可以进行部署操作'''
+                ]
+            )
+        }
+        
+        failure {
+            dingtalk (
+                robot: 'cicd构建推送',
+                type: 'MARKDOWN',
+                title: '构建失败通知',
+                text: [
+                    '''###  构建失败
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **项目地址**：[查看项目](${env.PROJECT_URL})
+- **任务名称**：${env.JOB_NAME}
+- **任务地址**：[查看任务](${env.JOB_URL})
+- **任务状态**：构建失败
+- **任务持续时间**：${currentBuild.durationString}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${BUILD_USER}
+
+**操作建议**：
+- 请检查[构建日志](${env.JOB_URL}console)'''
+                ]
+            )
+        }
+
+        unstable {
+            dingtalk (
+                robot: 'cicd构建推送',
+                type: 'MARKDOWN',
+                title: '构建不稳定通知',
+                text: [
+                    '''###  构建不稳定
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **项目地址**：[查看项目](${env.PROJECT_URL})
+- **任务名称**：${env.JOB_NAME}
+- **任务地址**：[查看任务](${env.JOB_URL})
+- **任务状态**：构建不稳定
+- **任务持续时间**：${currentBuild.durationString}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${BUILD_USER}
+
+**操作建议**：
+- 请检查[构建日志](${env.JOB_URL}console)'''
+                ]
+            )
+        }
+
+        aborted {
+            dingtalk (
+                robot: 'cicd构建推送',
+                type: 'MARKDOWN',
+                title: '构建中止通知',
+                text: [
+                    '''###  构建被中止
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **项目地址**：[查看项目](${env.PROJECT_URL})
+- **任务名称**：${env.JOB_NAME}
+- **任务地址**：[查看任务](${env.JOB_URL})
+- **任务状态**：构建中止
+- **任务持续时间**：${currentBuild.durationString}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${BUILD_USER}
+
+**操作建议**：
+- 请确认是否是人为中止'''
+                ]
+            )
+        }
+    }
 }

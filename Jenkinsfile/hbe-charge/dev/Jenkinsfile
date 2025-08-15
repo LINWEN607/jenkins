@@ -6,132 +6,244 @@ pipeline {
     }
 
     tools {
-        go 'go1.23.0'
+        go 'go1.23'
     }
 
     environment {
         PATH = "${env.GOPATH}:${env.PATH}"
-        PROJECT_NAME = sh(script: """
-            echo ${env.GIT_URL} | awk -F'/' '{print $NF}' | sed 's/\\..*//'
-        """, returnStdout: true).trim()
+        // PROJECT_NAME 不能在这里用 sh 动态赋值
     }
 
     stages {
         stage('1.拉取代码') {
             steps {
                 script {
-                    def git_address = "http://192.168.0.153:8090/lins/teset-server.git"
-                    def git_auth = "7cb729e5-a40c-445b-b82d-bac1fb6df325"
+                    def git_address = "http://192.168.30.111/lins/hbe-charge.git"
+                    def git_auth = "git-root"
                     def git_branch = env.BRANCH_NAME
-                    
+
                     git(
                         branch: git_branch, 
                         credentialsId: git_auth, 
                         url: git_address
                     )
+
+                    // 在这里动态赋值 PROJECT_NAME
+                    env.PROJECT_NAME = sh(
+                        script: """
+                            echo ${env.GIT_URL} | awk -F'/' '{print \$NF}' | sed 's/\\..*//'
+                        """,
+                        returnStdout: true
+                    ).trim()
                 }
             }
         }
 
-        stage('2.编译程序') {
+        stage('2.判断修改模块') {
             steps {
-                sh """
-                    #!/bin/bash
-                    cd ${env.WORKSPACE}
-                    export GOPROXY=https://goproxy.cn,direct
-                    go build -o ${env.PROJECT_NAME} main.go
-                    cp ${env.PROJECT_NAME} /var/jenkins_home/${env.PROJECT_NAME}
-                """
+                script {
+                    // 获取所有文件的修改时间和文件名，找出最新的
+                    def latestFileInfo = sh(
+                        script: 'git ls-files -z | xargs -0 stat -c "%Y %n" | sort -nr | head -n 1',
+                        returnStdout: true
+                    ).trim()
+                    def latestFile = latestFileInfo.split(' ', 2)[1]
+
+                    def app = null
+                    if (latestFile.startsWith('app/backend/')) {
+                        app = 'backend'
+                    } else if (latestFile.startsWith('app/csms1.6/')) {
+                        app = 'csms1.6'
+                    } else if (latestFile.startsWith('app/frontend/')) {
+                        app = 'frontend'
+                    } else if (latestFile.startsWith('app/jobs/')) {
+                        app = 'jobs'
+                    }
+
+                    if (app == null) {
+                        error("未检测到任何模块被修改，请检查提交内容。")
+                    } else {
+                        env.APP_TO_BUILD = app
+                        echo "本次只构建最新修改文件所属模块: ${app}，文件为: ${latestFile}"
+                    }
+                }
             }
         }
 
-        stage('3.部署程序') {
+        stage('3.编译程序') {
+            steps {
+                script {
+                    def app = env.APP_TO_BUILD
+
+                    // 进入对应子模块目录并构建
+                    sh """
+                        echo '开始构建模块: ${app}'
+                        cd app/${app}
+                        export GOPROXY=https://goproxy.cn,direct
+                        go build -o main main.go
+                        # 将模块的二进制文件保存到独立目录
+                        mkdir -p /var/jenkins_home/${app}
+                        cp main /var/jenkins_home/${app}/
+                    """
+                }
+            }
+        }
+
+        stage('4.部署程序') {
             steps {
                 script {
                     def deployConfig = [
-                        dev: [host: "192.168.1.10", path: "/home/dev/training-ip-demo", sshCredentialId: "dev-ssh-key"],
-                        main: [host: "192.168.0.210", path: "/home/main/teset-server", sshCredentialId: "main-ssh-key"],
-                        prod: [host: "192.168.1.30", path: "/home/prod/training-ip-demo", sshCredentialId: "prod-ssh-key"]
+                        release: [host: "192.168.30.111", sshCredentialId: "test-ssh-key"],
+                        main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
+                        prod: [host: "192.168.1.30", sshCredentialId: "prod-ssh-key"]
                     ]
 
-                    def targetBranch = git_branch
+                    def targetBranch = env.BRANCH_NAME
                     def config = deployConfig[targetBranch]
 
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
                     }
 
+                    def app = env.APP_TO_BUILD
+                    def remotePath = "/usr/local/www/go/hbe-charge/app/${app}"
+
                     sshagent([config.sshCredentialId]) {
-                        // 杀死目标服务器上的旧进程
+                        // 备份旧版本文件
                         sh """
-                            ssh -o StrictHostKeyChecking=no root@${config.host} "
-                                echo '开始查找并终止旧进程...'
-                                OLD_PID=\$(ps -ef | grep ${env.PROJECT_NAME} | grep -v grep | grep -v jenkins | awk '{print \$2}')
-                                if [ -n \"\$OLD_PID\" ]; then
-                                    echo \"找到旧进程 ID: \$OLD_PID，正在终止...\"
-                                    sudo kill -9 \$OLD_PID || echo \"终止旧进程失败\"
+                            ssh -o StrictHostKeyChecking=no root@${config.host} '
+                                BASE_NAME="hbe-charge"
+                                DEPLOY_PATH="${remotePath}"
+                                FILE_PATH="\$DEPLOY_PATH/main"
+                                echo "备份旧版本文件..."
+                                if [ -f "\$FILE_PATH" ]; then
+                                    mkdir -p /data/backup/hbe-charge/${app}
+                                    TIMESTAMP=\$(date +%Y%m%d%H%M%S)
+                                    BACKUP_FILE="/data/backup/hbe-charge/${app}/\$BASE_NAME-\$TIMESTAMP"
+                                    cp "\$FILE_PATH" "\$BACKUP_FILE"
+                                    echo "已备份旧文件到: \$BACKUP_FILE"
+                                    ls -t /data/backup/hbe-charge/${app}/\$BASE_NAME-* 2>/dev/null | tail -n +4 | xargs -r rm -f
+                                    echo "已清理多余备份文件"
                                 else
-                                    echo '未找到旧进程'
+                                    echo "未找到旧版本文件"
                                 fi
-                            "
+                            '
                         """
 
-                        // 部署新程序
+                        // 部署新程序并重启服务
                         sh """
-                            echo '开始部署新程序...'
-                            scp /var/jenkins_home/${env.PROJECT_NAME} root@${config.host}:${config.path}/
+                            echo '开始部署模块: ${app}...'
+                            scp /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
                             ssh -o StrictHostKeyChecking=no root@${config.host} "
-                                echo '创建部署目录...'
-                                mkdir -p ${config.path}
                                 echo '启动新程序...'
-                                cd ${config.path} && 
-                                JENKINS_NODE_COOKIE=dontKillMe nohup ./${env.PROJECT_NAME} > /dev/null 2>&1 &
+                                cd ${remotePath} && 
+                                JENKINS_NODE_COOKIE=dontKillMe nohup ./main > /dev/null 2>&1 &
+
+                                # 重启服务
+                                systemctl restart hbecharge_${app}
                             "
-                        "
+                        """
                     }
                 }
             }
         }
     }
 
+
     post {
         success {
-            dingTalk (
-                robot: 'dev-robot',  // 引用系统配置的机器人 ID
-                message: """
-{
-    "msgtype": "markdown",
-    "markdown": {
-        "title": "构建成功",
-        "text": "### 🎉 构建成功\n\n" +
-                "项目名称: `\${env.PROJECT_NAME}`\n" +
-                "分支: `${env.BRANCH_NAME}`\n" +
-                "构建结果: 成功 ✅\n" +
-                "构建链接: [点击查看](${env.BUILD_URL})\n\n" +
-                "> 自动部署完成，请检查目标服务器状态。"
-    }
-}
-                """
+            dingtalk (
+                robot: 'cicd构建推送',
+                type: 'MARKDOWN',
+                title: '构建成功通知',
+                text: [
+                    '''###  构建成功
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **项目地址**：[查看项目](${env.PROJECT_URL})
+- **任务名称**：${env.JOB_NAME}
+- **任务地址**：[查看任务](${env.JOB_URL})
+- **任务状态**：构建成功
+- **任务持续时间**：${currentBuild.durationString}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${BUILD_USER}
+
+**操作建议**：
+- 可以进行部署操作'''
+                ]
+            )
+        }
+        
+        failure {
+            dingtalk (
+                robot: 'cicd构建推送',
+                type: 'MARKDOWN',
+                title: '构建失败通知',
+                text: [
+                    '''###  构建失败
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **项目地址**：[查看项目](${env.PROJECT_URL})
+- **任务名称**：${env.JOB_NAME}
+- **任务地址**：[查看任务](${env.JOB_URL})
+- **任务状态**：构建失败
+- **任务持续时间**：${currentBuild.durationString}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${BUILD_USER}
+
+**操作建议**：
+- 请检查[构建日志](${env.JOB_URL}console)'''
+                ]
             )
         }
 
-        failure {
-            dingTalk (
-                robot: 'dev-robot',
-                message: """
-{
-    "msgtype": "markdown",
-    "markdown": {
-        "title": "构建失败",
-        "text": "### ❌ 构建失败\n\n" +
-                "项目名称: `\${env.PROJECT_NAME}`\n" +
-                "分支: `${env.BRANCH_NAME}`\n" +
-                "构建结果: 失败 ❌\n" +
-                "构建链接: [点击查看](${env.BUILD_URL})\n\n" +
-                "> 请检查 Jenkins 日志以获取详细错误信息。"
-    }
-}
-                """
+        unstable {
+            dingtalk (
+                robot: 'cicd构建推送',
+                type: 'MARKDOWN',
+                title: '构建不稳定通知',
+                text: [
+                    '''###  构建不稳定
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **项目地址**：[查看项目](${env.PROJECT_URL})
+- **任务名称**：${env.JOB_NAME}
+- **任务地址**：[查看任务](${env.JOB_URL})
+- **任务状态**：构建不稳定
+- **任务持续时间**：${currentBuild.durationString}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${BUILD_USER}
+
+**操作建议**：
+- 请检查[构建日志](${env.JOB_URL}console)'''
+                ]
+            )
+        }
+
+        aborted {
+            dingtalk (
+                robot: 'cicd构建推送',
+                type: 'MARKDOWN',
+                title: '构建中止通知',
+                text: [
+                    '''###  构建被中止
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **项目地址**：[查看项目](${env.PROJECT_URL})
+- **任务名称**：${env.JOB_NAME}
+- **任务地址**：[查看任务](${env.JOB_URL})
+- **任务状态**：构建中止
+- **任务持续时间**：${currentBuild.durationString}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${BUILD_USER}
+
+**操作建议**：
+- 请确认是否是人为中止'''
+                ]
             )
         }
     }
