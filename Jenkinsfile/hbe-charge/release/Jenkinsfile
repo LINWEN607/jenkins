@@ -1,6 +1,6 @@
 def userPhoneMap = [
     'lins': '13612373427',
-    'lisi': '13900139000',
+    'dizsin': '13048932770',
     'wangwu': '13700137000',
     'linwen': '18888888888'
 ]
@@ -108,7 +108,7 @@ pipeline {
                     def deployConfig = [
                         dev: [host: "192.168.29.50", sshCredentialId: "test-ssh-key"],
                         main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
-                        prod: [host: "192.168.1.30", sshCredentialId: "prod-ssh-key"]
+                        release: [host: "120.77.170.190", sshCredentialId: "dev-ssh-key"]
                     ]
 
                     def targetBranch = env.BRANCH_NAME
@@ -121,7 +121,7 @@ pipeline {
 
                     // 遍历每个需要部署的模块
                     apps.each { app ->
-                        def remotePath = "/usr/local/www/go/hbe-charge/app/${app}"
+                        def remotePath = "/usr/local/www/go/src/hbe-charge/app/${app}"
                         
                         sshagent([config.sshCredentialId]) {
                             // 备份旧版本文件
