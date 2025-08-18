@@ -63,7 +63,9 @@ pipeline {
                         if (file.startsWith('app/backend/')) {
                             modifiedApps.add('backend')
                         } else if (file.startsWith('app/csms1.6/')) {
-                            modifiedApps.add('csms1.6')
+                            modifiedApps.add('charge16')
+                        } else if (file.startsWith('app/csms2.0.1/')) {
+                            modifiedApps.add('charge201')
                         } else if (file.startsWith('app/frontend/')) {
                             modifiedApps.add('frontend')
                         } else if (file.startsWith('app/jobs/')) {
