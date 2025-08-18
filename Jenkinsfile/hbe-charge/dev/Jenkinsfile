@@ -133,14 +133,24 @@ pipeline {
                         // 部署新程序并重启服务
                         sh """
                             echo '开始部署模块: ${app}...'
+                            # 先停止服务
+                            ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                echo '停止旧服务...'
+                                systemctl stop hbecharge_${app}
+                                sleep 2
+                            "
+                            
+                            # 再复制文件
                             scp /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
+                            
+                            # 最后启动服务
                             ssh -o StrictHostKeyChecking=no root@${config.host} "
                                 echo '启动新程序...'
                                 cd ${remotePath} && 
                                 JENKINS_NODE_COOKIE=dontKillMe nohup ./main > /dev/null 2>&1 &
 
-                                # 重启服务
-                                systemctl restart hbecharge_${app}
+                                # 启动服务
+                                systemctl start hbecharge_${app}
                             "
                         """
                     }
