@@ -1,3 +1,10 @@
+def userPhoneMap = [
+    'lins': '13612373427',
+    'lisi': '13900139000',
+    'wangwu': '13700137000',
+    'linwen': '18888888888'
+]
+
 pipeline {
     agent {
         node {
@@ -160,6 +167,11 @@ pipeline {
         success {
             script {
                 def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                // 获取提交者的手机号
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
                     robot: 'cicd构建推送',
                     type: 'MARKDOWN',
@@ -172,12 +184,18 @@ pipeline {
 - **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建成功
 - **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
 
 > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
 > 构建人：${buildUser}
 
 **操作建议**：
 - 可到对应项目分支的环境测试验证功能。（/data/backup/hbe-charge/服务名称）此路径备份此前三个版本的编译文件，可按时间戳区分"""
+                    ],
+                    at: [
+                        phoneNumber  // 添加手机号到 at 列表
                     ]
                 )
             }
@@ -198,6 +216,9 @@ pipeline {
 - **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建失败
 - **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
 
 > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
 > 构建人：${buildUser}
@@ -224,6 +245,9 @@ pipeline {
 - **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建不稳定
 - **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
 
 > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
 > 构建人：${buildUser}
@@ -250,6 +274,9 @@ pipeline {
 - **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建中止
 - **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
 
 > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
 > 构建人：${buildUser}

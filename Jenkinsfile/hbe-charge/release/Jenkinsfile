@@ -172,6 +172,9 @@ pipeline {
 - **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建成功
 - **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
 
 > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
 > 构建人：${buildUser}
@@ -198,6 +201,9 @@ pipeline {
 - **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建失败
 - **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
 
 > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
 > 构建人：${buildUser}
@@ -224,6 +230,9 @@ pipeline {
 - **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建不稳定
 - **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
 
 > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
 > 构建人：${buildUser}
@@ -250,6 +259,9 @@ pipeline {
 - **构建服务**：${env.APP_TO_BUILD}
 - **任务状态**：构建中止
 - **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
 
 > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
 > 构建人：${buildUser}
