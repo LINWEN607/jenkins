@@ -146,9 +146,6 @@ pipeline {
                             # 最后启动服务
                             ssh -o StrictHostKeyChecking=no root@${config.host} "
                                 echo '启动新程序...'
-                                cd ${remotePath} && 
-                                JENKINS_NODE_COOKIE=dontKillMe nohup ./main > /dev/null 2>&1 &
-
                                 # 启动服务
                                 systemctl start hbecharge_${app}
                             "
