@@ -137,7 +137,6 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no root@${config.host} "
                                 echo '停止旧服务...'
                                 systemctl stop hbecharge_${app}
-                                sleep 2
                             "
                             
                             # 再复制文件
