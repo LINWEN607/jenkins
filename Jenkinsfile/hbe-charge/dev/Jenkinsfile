@@ -189,7 +189,7 @@ pipeline {
                     
 - **项目名称**：${env.PROJECT_NAME}
 - **任务名称**：${env.JOB_NAME}
-- **构建服务**：${env.APP_TO_BUILD}
+- **构建服务**：${env.APPS_TO_BUILD}
 - **任务状态**：构建成功
 - **任务持续时间**：${currentBuild.durationString}
 - **Commit ID**：${shortCommit}
@@ -225,7 +225,7 @@ pipeline {
                     
 - **项目名称**：${env.PROJECT_NAME}
 - **任务名称**：${env.JOB_NAME}
-- **构建服务**：${env.APP_TO_BUILD}
+- **构建服务**：${env.APPS_TO_BUILD}
 - **任务状态**：构建失败
 - **任务持续时间**：${currentBuild.durationString}
 - **Commit ID**：${shortCommit}
@@ -261,7 +261,7 @@ pipeline {
                     
 - **项目名称**：${env.PROJECT_NAME}
 - **任务名称**：${env.JOB_NAME}
-- **构建服务**：${env.APP_TO_BUILD}
+- **构建服务**：${env.APPS_TO_BUILD}
 - **任务状态**：构建不稳定
 - **任务持续时间**：${currentBuild.durationString}
 - **Commit ID**：${shortCommit}
@@ -297,7 +297,7 @@ pipeline {
                     
 - **项目名称**：${env.PROJECT_NAME}
 - **任务名称**：${env.JOB_NAME}
-- **构建服务**：${env.APP_TO_BUILD}
+- **构建服务**：${env.APPS_TO_BUILD}
 - **任务状态**：构建中止
 - **任务持续时间**：${currentBuild.durationString}
 - **Commit ID**：${shortCommit}
