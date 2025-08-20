@@ -42,6 +42,18 @@ pipeline {
                         """,
                         returnStdout: true
                     ).trim()
+                    
+                    // 获取 Git 修订版本
+                    env.GIT_COMMIT = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+                    
+                    // 获取当前日期时间
+                    env.BUILD_TIME = sh(
+                        script: 'date "+%Y-%m-%d %H:%M:%S"',
+                        returnStdout: true
+                    ).trim()
                 }
             }
         }
@@ -98,6 +110,11 @@ pipeline {
                             go build -o main main.go
                             mkdir -p /var/jenkins_home/${app}
                             cp main /var/jenkins_home/${app}/
+                            
+                            # 计算程序文件的哈希值和文件大小
+                            echo "计算哈希值..."
+                            sha256sum main > /var/jenkins_home/${app}/main.sha256
+                            stat -c %s main > /var/jenkins_home/${app}/main.size
                         """
                     }
                 }
@@ -124,6 +141,17 @@ pipeline {
                     // 遍历每个需要部署的模块
                     apps.each { app ->
                         def remotePath = "/usr/local/www/go/hbe-charge/app/${app}"
+                        
+                        // 获取文件大小和哈希值
+                        def fileSize = sh(
+                            script: "cat /var/jenkins_home/${app}/main.size",
+                            returnStdout: true
+                        ).trim()
+                        
+                        def fileHash = sh(
+                            script: "cat /var/jenkins_home/${app}/main.sha256 | cut -d' ' -f1",
+                            returnStdout: true
+                        ).trim()
                         
                         sshagent([config.sshCredentialId]) {
                             // 备份旧版本文件
@@ -163,6 +191,38 @@ pipeline {
                                 ssh -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '启动新程序...'
                                     systemctl start hbecharge_${app}
+                                "
+                            """
+                            
+                            // 创建或更新 meta 文件
+                            def commitMessage = sh(
+                                script: 'git log -1 --pretty=%B',
+                                returnStdout: true
+                            ).trim()
+                            
+                            def buildStatus = "SUCCESS"
+                            if (currentBuild.result) {
+                                buildStatus = currentBuild.result
+                            }
+                            
+                            def metaContent = """# 构建元数据信息
+软件版本号: ${app}_${env.BUILD_TIME.replaceAll(" ", "_")}
+发布日期和时间: ${env.BUILD_TIME}
+归属的项目: ${env.PROJECT_NAME}
+代码仓库: ${env.GIT_URL}
+分支: ${env.BRANCH_NAME}
+对应 revision: ${env.GIT_COMMIT}
+二进制文件大小: ${fileSize} bytes
+二进制文件 hash(sha256): ${fileHash}
+主要修改描述: ${commitMessage}
+
+构建时间: ${new Date().format("yyyy-MM-dd HH:mm:ss")}
+构建状态: ${buildStatus}
+"""
+                            
+                            sh """
+                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                    echo '${metaContent}' >> ${remotePath}/meta.log
                                 "
                             """
                         }
