@@ -5,6 +5,7 @@ def userPhoneMap = [
     'linwen': '18888888888'
 ]
 
+
 pipeline {
     agent {
         node {
@@ -23,7 +24,7 @@ pipeline {
         stage('1.拉取代码') {
             steps {
                 script {
-                    def git_address = "http://10.255.5.150/cloud-vue/snciot_backend2-0.git"
+                    def git_address = "http://192.168.30.111/lins/snciot_backend2-0.git"
                     def git_auth = "git-root"
                     def git_branch = env.BRANCH_NAME
 
@@ -120,9 +121,9 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        master: [host: "192.168.29.50", sshCredentialId: "test-ssh-key"],
+                        master: [host: "192.168.30.111", sshCredentialId: "test-ssh-key"],
                         main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
-                        release: [host: "20.77.170.190", sshCredentialId: "dev-ssh-key"]
+                        release: [host: "120.77.170.190", sshCredentialId: "dev-ssh-key"]
                     ]
 
                     def targetBranch = env.BRANCH_NAME
@@ -239,7 +240,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd-test',
                     type: 'MARKDOWN',
                     title: '构建成功通知',
                     text: [
@@ -276,17 +277,8 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 
-                // 获取构建错误信息
-                def errorLines = currentBuild.rawBuild.getLog(1000).grep(/ERROR|FAILURE/)
-                def errorText = errorLines.join("\n")
-                
-                // 如果没有获取到错误信息，则使用默认信息
-                if (errorText == null || errorText.trim() == '') {
-                    errorText = "无法获取详细错误日志，请查看Jenkins构建历史记录"
-                }
-                
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd-test',
                     type: 'MARKDOWN',
                     title: '构建失败通知',
                     text: [
@@ -304,10 +296,8 @@ pipeline {
 > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
 > 构建人：${buildUser}
 
-**流水线报错原因**：
-```
-${errorText}
-```"""
+**操作建议**：
+- 请联系林文进行排查"""
                     ],
                     at: [
                         phoneNumber  // 添加手机号到 at 列表
@@ -325,7 +315,7 @@ ${errorText}
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd-test',
                     type: 'MARKDOWN',
                     title: '构建不稳定通知',
                     text: [
@@ -362,7 +352,7 @@ ${errorText}
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd-test',
                     type: 'MARKDOWN',
                     title: '构建中止通知',
                     text: [
