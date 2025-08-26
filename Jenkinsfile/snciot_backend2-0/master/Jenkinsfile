@@ -23,7 +23,7 @@ pipeline {
         stage('1.拉取代码') {
             steps {
                 script {
-                    def git_address = "http://192.168.30.111/lins/snciot_backend2-0.git"
+                    def git_address = "http://10.255.5.150/cloud-vue/snciot_backend2-0.git"
                     def git_auth = "git-root"
                     def git_branch = env.BRANCH_NAME
 
