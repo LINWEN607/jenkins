@@ -213,8 +213,8 @@ pipeline {
 代码仓库: ${env.GIT_URL}
 分支: ${env.BRANCH_NAME}
 对应 revision: ${env.GIT_COMMIT}
-压缩包大小: ${fileSize}
-压缩包 hash(sha256): ${fileHash}
+文件夹大小: ${fileSize}
+文件夹 hash(sha256): ${fileHash}
 主要修改描述: ${commitMessage}
 
 构建时间: ${new Date().format("yyyy-MM-dd HH:mm:ss")}
