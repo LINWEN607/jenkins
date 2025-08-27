@@ -1,7 +1,7 @@
 def userPhoneMap = [
     'lins': '13612373427',
     'dlcios': '13048932770',
-    'gxy': '15549814468',
+    'ganxiaoyu': '15549814468',
     'linwen': '18888888888'
 ]
 
@@ -76,6 +76,7 @@ pipeline {
                     
                     // 显式安装关键依赖以解决构建时找不到模块的问题
                     sh 'cnpm install lodash --save'
+                    sh 'cnpm install dayjs --save'
                     sh 'cnpm install @vueuse/core --save'
                     
                     // 安装项目依赖（包括vite）
