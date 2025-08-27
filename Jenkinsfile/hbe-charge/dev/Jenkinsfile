@@ -86,7 +86,12 @@ pipeline {
                     }
 
                     if (modifiedApps.isEmpty()) {
-                        error("未检测到任何模块被修改，请检查提交内容。")
+                        // 设置构建服务字段
+                        env.APPS_TO_BUILD = "未检测到任何模块被修改，无需构建"
+                        echo "未检测到任何模块被修改，构建成功退出。"
+                        currentBuild.result = 'SUCCESS'
+                        // 直接退出流水线
+                        return
                     } else {
                         // 将修改的模块列表存储到环境变量
                         env.APPS_TO_BUILD = modifiedApps.join(',')
