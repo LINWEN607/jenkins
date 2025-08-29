@@ -261,7 +261,7 @@ pipeline {
 > 构建人：${buildUser}
 
 **操作建议**：
-- 可到对应项目分支的环境测试验证功能。（/usr/local/www/web/frontend/）此路径备份此前四个版本的文件，可按时间戳区分"""
+- 可到对应项目分支的环境测试验证功能。（/usr/local/www/web/）此路径备份此前四个版本的文件，可按时间戳区分"""
                     ],
                     at: [
                         phoneNumber  // 添加手机号到 at 列表
