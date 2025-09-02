@@ -123,9 +123,9 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        50: [host: "192.168.29.50", sshCredentialId: "test-ssh-key"],
-                        main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
-                        release: [host: "120.77.170.190", sshCredentialId: "dev-ssh-key"]
+                        "50": [host: "192.168.29.50", sshCredentialId: "test-ssh-key"],
+                        "main": [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
+                        "release": [host: "120.77.170.190", sshCredentialId: "dev-ssh-key"]
                     ]
 
                     def targetBranch = env.BRANCH_NAME
