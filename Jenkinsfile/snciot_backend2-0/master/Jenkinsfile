@@ -93,7 +93,7 @@ pipeline {
                     sh 'npm run build'
 
                     // 使用固定的工作空间路径
-                    def outputDir = "/var/jenkins_home/workspace/snciot_backend2-0_master@2"
+                    def outputDir = "/var/jenkins_home/workspace/snciot_backend2-0_testing@2"
                     def dirExists = sh(
                         script: "if [ -d \"${outputDir}\" ]; then echo \"true\"; else echo \"false\"; fi",
                         returnStdout: true
@@ -123,21 +123,21 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        master: [host: "192.168.29.50", sshCredentialId: "test-ssh-key"],
-                        main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
-                        release: [host: "120.77.170.190", sshCredentialId: "dev-ssh-key"]
+                        "50": [host: "192.168.29.50", port: 22,sshCredentialId: "test-ssh-key"],
+                        "main": [host: "192.168.0.210",port: 22, sshCredentialId: "main-ssh-key"],
+                         testing: [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
                     ]
 
                     def targetBranch = env.BRANCH_NAME
                     def config = deployConfig[targetBranch]
-                    def remotePath = "/usr/local/www/web/"
+                    def remotePath = "/usr/local/www/web/frontend/"
 
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
                     }
 
                     // 使用固定的工作空间路径
-                    def outputDir = "/var/jenkins_home/workspace/snciot_backend2-0_master@2/hbe_backend"
+                    def outputDir = "/var/jenkins_home/workspace/snciot_backend2-0_testing@2/hbe_backend"
                     
                     // 获取文件夹大小
                     def fileSize = sh(
@@ -154,17 +154,17 @@ pipeline {
                     sshagent([config.sshCredentialId]) {
                         // 压缩本地编译产物并传输到远程服务器
                         sh """
-                            tar -czf hbe_backend.tar.gz -C /var/jenkins_home/workspace/snciot_backend2-0_master@2 hbe_backend
+                            tar -czf hbe_backend.tar.gz -C /var/jenkins_home/workspace/snciot_backend2-0_testing@2 hbe_backend
                         """
                         
                         // 传输压缩包到远程服务器
                         sh """
-                            scp -o StrictHostKeyChecking=no hbe_backend.tar.gz root@${config.host}:${remotePath}
+                            scp -P ${config.port} -o StrictHostKeyChecking=no hbe_backend.tar.gz root@${config.host}:${remotePath}
                         """
                         
                         // 在远程服务器上执行所有操作：备份、解压、重命名、清理
                         sh """
-                            ssh -o StrictHostKeyChecking=no root@${config.host} '
+                            ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
                                 DEPLOY_PATH="${remotePath}"
                                 FOLDER_PATH="\$DEPLOY_PATH/hbe_backend"
                                 
@@ -242,7 +242,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd构建推送-开发环境',
                     type: 'MARKDOWN',
                     title: '构建成功通知',
                     text: [
@@ -261,7 +261,7 @@ pipeline {
 > 构建人：${buildUser}
 
 **操作建议**：
-- 可到对应项目分支的环境测试验证功能。（/usr/local/www/web/）此路径备份此前四个版本的文件，可按时间戳区分"""
+- 可到对应项目分支的环境测试验证功能。（/usr/local/www/web/frontend/）此路径备份此前四个版本的文件，可按时间戳区分"""
                     ],
                     at: [
                         phoneNumber  // 添加手机号到 at 列表
@@ -280,7 +280,7 @@ pipeline {
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd构建推送-开发环境',
                     type: 'MARKDOWN',
                     title: '构建失败通知',
                     text: [
@@ -317,7 +317,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd构建推送-开发环境',
                     type: 'MARKDOWN',
                     title: '构建不稳定通知',
                     text: [
@@ -354,7 +354,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd构建推送-开发环境',
                     type: 'MARKDOWN',
                     title: '构建中止通知',
                     text: [
