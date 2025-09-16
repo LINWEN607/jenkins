@@ -387,41 +387,5 @@ pipeline {
             }
         }
 
-        aborted {
-            script {
-                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
-                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
-                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
-                // 获取提交者的手机号
-                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
-                dingtalk (
-                    robot: 'cicd构建推送-开发环境',
-                    type: 'MARKDOWN',
-                    title: '构建中止通知',
-                    text: [
-                        """###  构建被中止
-                    
-- **项目名称**：${env.PROJECT_NAME}
-- **任务名称**：${env.JOB_NAME}
-- **构建服务**：前端Vite项目
-- **任务状态**：构建中止
-- **任务持续时间**：${currentBuild.durationString}
-- **Commit ID**：${shortCommit}
-- **Commit 信息**：${commitMessage}
-- **修改人**：${commitAuthor}
-
-> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
-> 构建人：${buildUser}
-
-**操作建议**：
-- 请确认是否是人为中止或交互式中止（生产环境上线前期部署阶段需交互式确认）"""
-                    ],
-                    at: [
-                        phoneNumber  // 添加手机号到 at 列表
-                    ]
-                )
-            }
-        }
     }
 }
