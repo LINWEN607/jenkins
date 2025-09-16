@@ -159,12 +159,12 @@ pipeline {
                         
                         // 传输压缩包到远程服务器
                         sh """
-                            scp -P 1022 -o StrictHostKeyChecking=no hbe_backend.tar.gz root@${config.host}:${remotePath}
+                            scp -P ${config.port} -o StrictHostKeyChecking=no hbe_backend.tar.gz root@${config.host}:${remotePath}
                         """
                         
                         // 在远程服务器上执行所有操作：备份、解压、重命名、清理
                         sh """
-                            ssh -P 1022 -o StrictHostKeyChecking=no root@120.77.170.190 '
+                            ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
                                 DEPLOY_PATH="${remotePath}"
                                 FOLDER_PATH="\$DEPLOY_PATH/hbe_backend"
                                 
@@ -222,9 +222,9 @@ pipeline {
 """
                         
                         sh """
-                            ssh -P 1022 -o StrictHostKeyChecking=no root@120.77.170.190 "
-                                echo '${metaContent}' >> ${remotePath}/meta.log
-                            "
+                            ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} 'cat << "EOF" > ${remotePath}/meta.log
+${metaContent}
+EOF'
                         """
                     }
                 }
