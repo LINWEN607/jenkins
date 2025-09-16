@@ -42,6 +42,18 @@ pipeline {
                         """,
                         returnStdout: true
                     ).trim()
+                    
+                    // 获取 Git 修订版本
+                    env.GIT_COMMIT = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+                    
+                    // 获取当前日期时间
+                    env.BUILD_TIME = sh(
+                        script: 'date "+%Y-%m-%d %H:%M:%S"',
+                        returnStdout: true
+                    ).trim()
                 }
             }
         }
@@ -74,7 +86,12 @@ pipeline {
                     }
 
                     if (modifiedApps.isEmpty()) {
-                        error("未检测到任何模块被修改，请检查提交内容。")
+                        // 设置构建服务字段
+                        env.APPS_TO_BUILD = "未检测到任何模块被修改，无需构建"
+                        echo "未检测到任何模块被修改，构建成功退出。"
+                        currentBuild.result = 'SUCCESS'
+                        // 直接退出流水线
+                        return
                     } else {
                         // 将修改的模块列表存储到环境变量
                         env.APPS_TO_BUILD = modifiedApps.join(',')
@@ -98,6 +115,11 @@ pipeline {
                             go build -o main main.go
                             mkdir -p /var/jenkins_home/${app}
                             cp main /var/jenkins_home/${app}/
+                            
+                            # 计算程序文件的哈希值和文件大小
+                            echo "计算哈希值..."
+                            sha256sum main > /var/jenkins_home/${app}/main.sha256
+                            stat -c %s main > /var/jenkins_home/${app}/main.size
                         """
                     }
                 }
@@ -108,9 +130,9 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        dev: [host: "192.168.29.50", sshCredentialId: "test-ssh-key"],
-                        main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
-                        release: [host: "120.77.170.190", sshCredentialId: "dev-ssh-key"]
+                        dev: [host: "192.168.29.50", port: 22,sshCredentialId: "test-ssh-key"],
+                        main: [host: "192.168.0.210", port: 22,sshCredentialId: "main-ssh-key"],
+                        release: [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
                     ]
 
                     def targetBranch = env.BRANCH_NAME
@@ -125,10 +147,21 @@ pipeline {
                     apps.each { app ->
                         def remotePath = "/usr/local/www/go/src/hbe-charge/app/${app}"
                         
+                        // 获取文件大小和哈希值
+                        def fileSize = sh(
+                            script: "cat /var/jenkins_home/${app}/main.size",
+                            returnStdout: true
+                        ).trim()
+                        
+                        def fileHash = sh(
+                            script: "cat /var/jenkins_home/${app}/main.sha256 | cut -d' ' -f1",
+                            returnStdout: true
+                        ).trim()
+                        
                         sshagent([config.sshCredentialId]) {
                             // 备份旧版本文件
                             sh """
-                                ssh -o StrictHostKeyChecking=no root@${config.host} '
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
                                     BASE_NAME="hbe-charge"
                                     DEPLOY_PATH="${remotePath}"
                                     FILE_PATH="\$DEPLOY_PATH/main"
@@ -151,18 +184,50 @@ pipeline {
                             sh """
                                 echo '开始部署模块: ${app}...'
                                 # 先停止服务
-                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '停止旧服务...'
                                     systemctl stop hbecharge_${app}
                                 "
                                 
                                 # 再复制文件
-                                scp /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
+                                scp -P ${config.port} /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
                                 
                                 # 最后启动服务
-                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '启动新程序...'
                                     systemctl start hbecharge_${app}
+                                "
+                            """
+                            
+                            // 创建或更新 meta 文件
+                            def commitMessage = sh(
+                                script: 'git log -1 --pretty=%B',
+                                returnStdout: true
+                            ).trim()
+                            
+                            def buildStatus = "SUCCESS"
+                            if (currentBuild.result) {
+                                buildStatus = currentBuild.result
+                            }
+                            
+                            def metaContent = """# 构建元数据信息
+软件版本号: ${app}_${env.BUILD_TIME.replaceAll(" ", "_")}
+发布日期和时间: ${env.BUILD_TIME}
+归属的项目: ${env.PROJECT_NAME}
+代码仓库: ${env.GIT_URL}
+分支: ${env.BRANCH_NAME}
+对应 revision: ${env.GIT_COMMIT}
+二进制文件大小: ${fileSize} bytes
+二进制文件 hash(sha256): ${fileHash}
+主要修改描述: ${commitMessage}
+
+构建时间: ${new Date().format("yyyy-MM-dd HH:mm:ss")}
+构建状态: ${buildStatus}
+"""
+                            
+                            sh """
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                    echo '${metaContent}' >> ${remotePath}/meta.log
                                 "
                             """
                         }
@@ -183,7 +248,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd构建推送-开发环境',
                     type: 'MARKDOWN',
                     title: '构建成功通知',
                     text: [
@@ -220,7 +285,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd构建推送-开发环境',
                     type: 'MARKDOWN',
                     title: '构建失败通知',
                     text: [
@@ -257,7 +322,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd构建推送-开发环境',
                     type: 'MARKDOWN',
                     title: '构建不稳定通知',
                     text: [
@@ -294,7 +359,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd构建推送-开发环境',
                     type: 'MARKDOWN',
                     title: '构建中止通知',
                     text: [

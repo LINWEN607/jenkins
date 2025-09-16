@@ -222,9 +222,9 @@ pipeline {
 """
                         
                         sh """
-                            ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} 'cat << "EOF" > ${remotePath}/meta.log
-${metaContent}
-EOF'
+                            ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                echo '${metaContent}' >> ${remotePath}/meta.log
+                            "
                         """
                     }
                 }
