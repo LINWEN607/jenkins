@@ -280,7 +280,7 @@ pipeline {
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: '1cicd构建推送',
                     type: 'MARKDOWN',
                     title: '构建失败通知',
                     text: [
