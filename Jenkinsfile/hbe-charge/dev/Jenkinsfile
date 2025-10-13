@@ -11,9 +11,6 @@ pipeline {
             label "master"
         }
     }
-options {
-        lock("hbe-charge")   // 使用同一个锁
-    }
     tools {
         go 'go1.23'
     }
