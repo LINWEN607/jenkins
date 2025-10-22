@@ -125,49 +125,49 @@ pipeline {
                 }
             }
         }
-        stage('人工确认') {
-            steps {
-                script {
-                    def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
-                    def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+//         stage('人工确认') {
+//             steps {
+//                 script {
+//                     def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+//                     def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+//                     def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
                     
-                    // 推送钉钉通知，提醒进行人工确认
-                    def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
-                    def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+//                     // 推送钉钉通知，提醒进行人工确认
+//                     def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+//                     def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                     
-                    dingtalk (
-                        robot: 'cicd构建推送-生产环境',
-                        type: 'MARKDOWN',
-                        title: '部署确认通知',
-                        text: [
-                            """###  需要部署确认
+//                     dingtalk (
+//                         robot: 'cicd构建推送-生产环境',
+//                         type: 'MARKDOWN',
+//                         title: '部署确认通知',
+//                         text: [
+//                             """###  需要部署确认
                         
-- **项目名称**：${env.PROJECT_NAME}
-- **任务名称**：${env.JOB_NAME}
-- **构建服务**：前端Vite项目
-- **分支**：${env.BRANCH_NAME}
-- **Commit ID**：${shortCommit}
-- **Commit 信息**：${commitMessage}
-- **提交人**：${commitAuthor}
+// - **项目名称**：${env.PROJECT_NAME}
+// - **任务名称**：${env.JOB_NAME}
+// - **构建服务**：前端Vite项目
+// - **分支**：${env.BRANCH_NAME}
+// - **Commit ID**：${shortCommit}
+// - **Commit 信息**：${commitMessage}
+// - **提交人**：${commitAuthor}
 
-> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
-> 请登录 Jenkins 确认是否继续部署操作"""
-                        ],
-                        at: [
-                            phoneNumber  // 添加手机号到 at 列表
-                        ]
-                    )
+// > 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+// > 请登录 Jenkins 确认是否继续部署操作"""
+//                         ],
+//                         at: [
+//                             phoneNumber  // 添加手机号到 at 列表
+//                         ]
+//                     )
                     
-                    // 等待人工确认
-                    input(
-                        message: "请确认是否部署到 ${env.BRANCH_NAME} 环境？\nCommit: ${shortCommit}\n信息: ${commitMessage}",
-                        ok: '确认部署',
-                        submitter: 'linwen,ganxiaoyu'
-                    )
-                }
-            }
-        }
+//                     // 等待人工确认
+//                     input(
+//                         message: "请确认是否部署到 ${env.BRANCH_NAME} 环境？\nCommit: ${shortCommit}\n信息: ${commitMessage}",
+//                         ok: '确认部署',
+//                         submitter: 'linwen,dlcios'
+//                     )
+//                 }
+//             }
+//         }
         stage('4.部署程序') {
             steps {
                 script {
