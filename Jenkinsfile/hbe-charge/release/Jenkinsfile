@@ -130,7 +130,7 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        dev: [host: "192.168.29.50", port: 22,sshCredentialId: "test-ssh-key"],
+                        dev: [host: "52.37.215.246", port: 22,sshCredentialId: "Prd-key"],
                         main: [host: "192.168.0.210", port: 22,sshCredentialId: "main-ssh-key"],
                         release: [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
                     ]
@@ -167,12 +167,12 @@ pipeline {
                                     FILE_PATH="\$DEPLOY_PATH/main"
                                     echo "备份旧版本文件..."
                                     if [ -f "\$FILE_PATH" ]; then
-                                        mkdir -p /data/backup/hbe-charge/${app}
+                                        sudo mkdir -p /data/backup/hbe-charge/${app}
                                         TIMESTAMP=\$(date +%Y%m%d%H%M%S)
                                         BACKUP_FILE="/data/backup/hbe-charge/${app}/\$BASE_NAME-\$TIMESTAMP"
-                                        cp "\$FILE_PATH" "\$BACKUP_FILE"
+                                        sudo cp "\$FILE_PATH" "\$BACKUP_FILE"
                                         echo "已备份旧文件到: \$BACKUP_FILE"
-                                        ls -t /data/backup/hbe-charge/${app}/\$BASE_NAME-* 2>/dev/null | tail -n +4 | xargs -r rm -f
+                                        sudo ls -t /data/backup/hbe-charge/${app}/\$BASE_NAME-* 2>/dev/null | tail -n +4 | xargs -r sudo rm -f
                                         echo "已清理多余备份文件"
                                     else
                                         echo "未找到旧版本文件"
@@ -186,7 +186,7 @@ pipeline {
                                 # 先停止服务
                                 ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '停止旧服务...'
-                                    systemctl stop hbecharge_${app}
+                                    sudo systemctl stop hbecharge_${app}
                                 "
                                 
                                 # 再复制文件
@@ -195,7 +195,7 @@ pipeline {
                                 # 最后启动服务
                                 ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '启动新程序...'
-                                    systemctl start hbecharge_${app}
+                                    sudo systemctl start hbecharge_${app}
                                 "
                             """
                             
@@ -227,7 +227,7 @@ pipeline {
                             
                             sh """
                                 ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
-                                    echo '${metaContent}' >> ${remotePath}/meta.log
+                                    echo '${metaContent}' | sudo tee -a ${remotePath}/meta.log
                                 "
                             """
                         }
@@ -248,7 +248,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-开发环境',
+                    robot: 'cicd构建推送-生产环境',
                     type: 'MARKDOWN',
                     title: '构建成功通知',
                     text: [
@@ -285,7 +285,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-开发环境',
+                    robot: 'cicd构建推送-生产环境',
                     type: 'MARKDOWN',
                     title: '构建失败通知',
                     text: [
@@ -322,7 +322,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-开发环境',
+                    robot: 'cicd构建推送-生产环境',
                     type: 'MARKDOWN',
                     title: '构建不稳定通知',
                     text: [
@@ -359,7 +359,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-开发环境',
+                    robot: 'cicd构建推送-生产环境',
                     type: 'MARKDOWN',
                     title: '构建中止通知',
                     text: [
