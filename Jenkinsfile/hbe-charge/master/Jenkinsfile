@@ -137,7 +137,7 @@ pipeline {
 //                     def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                     
 //                     dingtalk (
-//                         robot: 'cicd构建推送-开发环境',
+//                         robot: 'cicd构建推送-生产环境',
 //                         type: 'MARKDOWN',
 //                         title: '部署确认通知',
 //                         text: [
@@ -172,7 +172,7 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        dev: [host: "52.37.215.246", port: 22,sshCredentialId: "Prd-key"],
+                        master: [host: "52.37.215.246", port: 22,sshCredentialId: "Prd-key"],
                         main: [host: "192.168.0.210", port: 22,sshCredentialId: "main-ssh-key"],
                         release: [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
                     ]
@@ -290,7 +290,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-开发环境',
+                    robot: 'cicd构建推送-生产环境',
                     type: 'MARKDOWN',
                     title: '构建成功通知',
                     text: [
@@ -327,7 +327,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-开发环境',
+                    robot: 'cicd构建推送-生产环境',
                     type: 'MARKDOWN',
                     title: '构建失败通知',
                     text: [
@@ -364,7 +364,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-开发环境',
+                    robot: 'cicd构建推送-生产环境',
                     type: 'MARKDOWN',
                     title: '构建不稳定通知',
                     text: [
@@ -401,7 +401,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-开发环境',
+                    robot: 'cicd构建推送-生产环境',
                     type: 'MARKDOWN',
                     title: '构建中止通知',
                     text: [
@@ -420,7 +420,7 @@ pipeline {
 > 构建人：${buildUser}
 
 **操作建议**：
-- 请确认是否是人为中止或交互式中止（开发环境上线前期部署阶段需交互式确认）"""
+- 请确认是否是人为中止或交互式中止（生产环境上线前期部署阶段需交互式确认）"""
                     ],
                     at: [
                         phoneNumber  // 添加手机号到 at 列表
