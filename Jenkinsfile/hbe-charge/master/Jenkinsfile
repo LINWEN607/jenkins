@@ -231,6 +231,11 @@ pipeline {
                                     sudo systemctl stop hbecharge_${app}
                                 "
                                 
+                                # 授权ec2-user用户对目标目录的写入权限
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no ec2-user@${config.host} "
+                                    sudo chown -R ec2-user:ec2-user ${remotePath}
+                                "
+                                
                                 # 再复制文件
                                 scp -P ${config.port} /var/jenkins_home/${app}/main ec2-user@${config.host}:${remotePath}/
                                 
