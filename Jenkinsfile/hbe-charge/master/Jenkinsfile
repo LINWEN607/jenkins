@@ -203,7 +203,7 @@ pipeline {
                         sshagent([config.sshCredentialId]) {
                             // 备份旧版本文件
                             sh """
-                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no ec2-user@${config.host} '
                                     BASE_NAME="hbe-charge"
                                     DEPLOY_PATH="${remotePath}"
                                     FILE_PATH="\$DEPLOY_PATH/main"
@@ -226,16 +226,16 @@ pipeline {
                             sh """
                                 echo '开始部署模块: ${app}...'
                                 # 先停止服务
-                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no ec2-user@${config.host} "
                                     echo '停止旧服务...'
                                     sudo systemctl stop hbecharge_${app}
                                 "
                                 
                                 # 再复制文件
-                                scp -P ${config.port} /var/jenkins_home/${app}/main root@${config.host}:${remotePath}/
+                                scp -P ${config.port} /var/jenkins_home/${app}/main ec2-user@${config.host}:${remotePath}/
                                 
                                 # 最后启动服务
-                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no ec2-user@${config.host} "
                                     echo '启动新程序...'
                                     sudo systemctl start hbecharge_${app}
                                 "
@@ -268,7 +268,7 @@ pipeline {
 """
                             
                             sh """
-                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no ec2-user@${config.host} "
                                     echo '${metaContent}' | sudo tee -a ${remotePath}/meta.log
                                 "
                             """
