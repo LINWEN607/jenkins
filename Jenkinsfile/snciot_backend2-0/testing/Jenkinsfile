@@ -80,7 +80,7 @@ pipeline {
                     sh 'cnpm install @vueuse/core --save'
                     
                     // 安装项目依赖（包括vite）
-                    sh 'cnpm install'
+                    sh 'npm install'
                     
                     // 验证vite是否正确安装
                     sh 'ls -la node_modules/.bin/vite'
