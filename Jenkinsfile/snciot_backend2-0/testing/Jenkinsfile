@@ -78,13 +78,9 @@ pipeline {
                     sh 'cnpm install lodash --save'
                     sh 'cnpm install dayjs --save'
                     sh 'cnpm install @vueuse/core --save'
-                    // 安装 pnpm 全局工具
-                    sh 'npm install -g pnpm@7'
-
-                    // 配置 pnpm 使用国内镜像
-                    sh 'pnpm config set registry https://registry.npmmirror.com'
+                    
                     // 安装项目依赖（包括vite）
-                    sh 'pnpm install'
+                    sh 'cnpm install'
                     
                     // 验证vite是否正确安装
                     sh 'ls -la node_modules/.bin/vite'
