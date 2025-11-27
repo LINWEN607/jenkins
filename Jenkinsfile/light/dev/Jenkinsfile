@@ -1,0 +1,385 @@
+def userPhoneMap = [
+    'lins': '13612373427',
+    'dlcios': '13048932770',
+    'wangwu': '13700137000',
+    'linwen': '18888888888'
+]
+
+pipeline {
+    agent {
+        node {
+            label "master"
+        }
+    }
+    tools {
+        go 'go1.23'
+    }
+
+    environment {
+        PATH = "${env.GOPATH}:${env.PATH}"
+        // PROJECT_NAME 不能在这里用 sh 动态赋值
+    }
+
+    stages {
+        stage('1.拉取代码') {
+            steps {
+                script {
+                    def git_address = "http://10.255.5.150/cloud-platform/light"
+                    def git_auth = "git-root"
+                    def git_branch = env.BRANCH_NAME
+
+                    git(
+                        branch: git_branch, 
+                        credentialsId: git_auth, 
+                        url: git_address
+                    )
+
+                    // 在这里动态赋值 PROJECT_NAME
+                    env.PROJECT_NAME = sh(
+                        script: """
+                            echo ${env.GIT_URL} | awk -F'/' '{print \$NF}' | sed 's/\\..*//'
+                        """,
+                        returnStdout: true
+                    ).trim()
+                    
+                    // 获取 Git 修订版本
+                    env.GIT_COMMIT = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+                    
+                    // 获取当前日期时间
+                    env.BUILD_TIME = sh(
+                        script: 'date "+%Y-%m-%d %H:%M:%S"',
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
+
+        stage('2.判断修改模块') {
+            steps {
+                script {
+                    // 获取当前提交修改的所有文件
+                    def changedFiles = sh(
+                        script: 'git diff --name-only HEAD~1',
+                        returnStdout: true
+                    ).trim().split('\n')
+
+                    // 用Set存储被修改的模块，防止重复
+                    def modifiedApps = [] as Set
+
+                    // 遍历所有修改的文件，确定它们属于哪些模块
+                    changedFiles.each { file ->
+                        if (file.startsWith('app/admin/')) {
+                            modifiedApps.add('admin')
+                        } else if (file.startsWith('app/csms/')) {
+                            modifiedApps.add('csms')
+                        } else if (file.startsWith('app/mobile/')) {
+                            modifiedApps.add('mobile')
+                        }
+                    }
+
+                    if (modifiedApps.isEmpty()) {
+                        // 设置构建服务字段
+                        env.APPS_TO_BUILD = "未检测到任何模块被修改，无需构建"
+                        echo "未检测到任何模块被修改，构建成功退出。"
+                        currentBuild.result = 'SUCCESS'
+                        // 直接退出流水线
+                        return
+                    } else {
+                        // 将修改的模块列表存储到环境变量
+                        env.APPS_TO_BUILD = modifiedApps.join(',')
+                        echo "本次构建的模块: ${env.APPS_TO_BUILD}"
+                    }
+                }
+            }
+        }
+
+        stage('3.编译程序') {
+            steps {
+                script {
+                    def apps = env.APPS_TO_BUILD.split(',')
+                    
+                    // 遍历每个需要构建的模块
+                    apps.each { app ->
+                        echo "开始构建模块: ${app}"
+                        sh """
+                            cd app/${app}
+                            export GOPROXY=https://goproxy.cn,direct
+                            go build -o main main.go
+                            mkdir -p /var/jenkins_home/light/${app}
+                            cp main /var/jenkins_home/light/${app}/
+                            
+                            # 计算程序文件的哈希值和文件大小
+                            echo "计算哈希值..."
+                            sha256sum main > /var/jenkins_home/light/${app}/main.sha256
+                            stat -c %s main > /var/jenkins_home/light/${app}/main.size
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('4.部署程序') {
+            steps {
+                script {
+                    def deployConfig = [
+                        dev: [host: "192.168.29.50", sshCredentialId: "test-ssh-key"],
+                        main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
+                        release: [host: "120.77.170.190", sshCredentialId: "dev-ssh-key"]
+                    ]
+
+                    def targetBranch = env.BRANCH_NAME
+                    def config = deployConfig[targetBranch]
+                    def apps = env.APPS_TO_BUILD.split(',')
+
+                    if (!config) {
+                        error("未配置该分支的部署信息: ${targetBranch}")
+                    }
+
+                    // 遍历每个需要部署的模块
+                    apps.each { app ->
+                        def remotePath = "/usr/local/www/go/light/app/${app}"
+                        
+                        // 获取文件大小和哈希值
+                        def fileSize = sh(
+                            script: "cat /var/jenkins_home/light/${app}/main.size",
+                            returnStdout: true
+                        ).trim()
+                        
+                        def fileHash = sh(
+                            script: "cat /var/jenkins_home/light/${app}/main.sha256 | cut -d' ' -f1",
+                            returnStdout: true
+                        ).trim()
+                        
+                        sshagent([config.sshCredentialId]) {
+                            // 备份旧版本文件
+                            sh """
+                                ssh -o StrictHostKeyChecking=no root@${config.host} '
+                                    BASE_NAME="hbe-charge"
+                                    DEPLOY_PATH="${remotePath}"
+                                    FILE_PATH="\$DEPLOY_PATH/main"
+                                    echo "备份旧版本文件..."
+                                    if [ -f "\$FILE_PATH" ]; then
+                                        mkdir -p /data/backup/light/${app}
+                                        TIMESTAMP=\$(date +%Y%m%d%H%M%S)
+                                        BACKUP_FILE="/data/backup/light/${app}/\$BASE_NAME-\$TIMESTAMP"
+                                        cp "\$FILE_PATH" "\$BACKUP_FILE"
+                                        echo "已备份旧文件到: \$BACKUP_FILE"
+                                        ls -t /data/backup/light/${app}/\$BASE_NAME-* 2>/dev/null | tail -n +4 | xargs -r rm -f
+                                        echo "已清理多余备份文件"
+                                    else
+                                        echo "未找到旧版本文件"
+                                    fi
+                                '
+                            """
+
+                            // 部署新程序并重启服务
+                            sh """
+                                echo '开始部署模块: ${app}...'
+                                # 先停止服务
+                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                    echo '停止旧服务...'
+                                    systemctl stop light_${app}
+                                "
+                                
+                                # 再复制文件
+                                scp /var/jenkins_home/light/${app}/main root@${config.host}:${remotePath}/
+                                
+                                # 最后启动服务
+                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                    echo '启动新程序...'
+                                    systemctl start light_${app}
+                                "
+                            """
+                            
+                            // 创建或更新 meta 文件
+                            def commitMessage = sh(
+                                script: 'git log -1 --pretty=%B',
+                                returnStdout: true
+                            ).trim()
+                            
+                            def buildStatus = "SUCCESS"
+                            if (currentBuild.result) {
+                                buildStatus = currentBuild.result
+                            }
+                            
+                            def metaContent = """# 构建元数据信息
+软件版本号: ${app}_${env.BUILD_TIME.replaceAll(" ", "_")}
+发布日期和时间: ${env.BUILD_TIME}
+归属的项目: ${env.PROJECT_NAME}
+代码仓库: ${env.GIT_URL}
+分支: ${env.BRANCH_NAME}
+对应 revision: ${env.GIT_COMMIT}
+二进制文件大小: ${fileSize} bytes
+二进制文件 hash(sha256): ${fileHash}
+主要修改描述: ${commitMessage}
+
+构建时间: ${new Date().format("yyyy-MM-dd HH:mm:ss")}
+构建状态: ${buildStatus}
+"""
+                            
+                            sh """
+                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                    echo '${metaContent}' >> ${remotePath}/meta.log
+                                "
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    post {
+        success {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                // 获取提交者的手机号
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送',
+                    type: 'MARKDOWN',
+                    title: '构建成功通知',
+                    text: [
+                        """###  构建成功
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APPS_TO_BUILD}
+- **任务状态**：构建成功
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+
+**操作建议**：
+- 可到对应项目分支的环境测试验证功能。（/data/backup/light/服务名称）此路径备份此前三个版本的编译文件，可按时间戳区分"""
+                    ],
+                    at: [
+                        phoneNumber  // 添加手机号到 at 列表
+                    ]
+                )
+            }
+        }
+        
+        failure {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                // 获取提交者的手机号
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送',
+                    type: 'MARKDOWN',
+                    title: '构建失败通知',
+                    text: [
+                        """###  构建失败
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APPS_TO_BUILD}
+- **任务状态**：构建失败
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+
+**操作建议**：
+- 请联系林文进行排查"""
+                    ],
+                    at: [
+                        phoneNumber  // 添加手机号到 at 列表
+                    ]
+                )
+            }
+        }
+
+        unstable {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                // 获取提交者的手机号
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送',
+                    type: 'MARKDOWN',
+                    title: '构建不稳定通知',
+                    text: [
+                        """###  构建不稳定
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APPS_TO_BUILD}
+- **任务状态**：构建不稳定
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+
+**操作建议**：
+- 请联系林文进行排查"""
+                    ],
+                    at: [
+                        phoneNumber  // 添加手机号到 at 列表
+                    ]
+                )
+            }
+        }
+
+        aborted {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                // 获取提交者的手机号
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送',
+                    type: 'MARKDOWN',
+                    title: '构建中止通知',
+                    text: [
+                        """###  构建被中止
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APPS_TO_BUILD}
+- **任务状态**：构建中止
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+
+**操作建议**：
+- 请确认是否是人为中止或交互式中止（生产环境上线前期部署阶段需交互式确认）"""
+                    ],
+                    at: [
+                        phoneNumber  // 添加手机号到 at 列表
+                    ]
+                )
+            }
+        }
+    }
+}
