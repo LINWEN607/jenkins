@@ -107,7 +107,7 @@ pipeline {
                         sh """
                             cd app/${app}/cmd/${app}
                             export GOPROXY=https://goproxy.cn,direct
-                            go build -o main main.go
+                            go build -o main .
                             mkdir -p /var/jenkins_home/light/${app}
                             cp main /var/jenkins_home/light/${app}/
                             
