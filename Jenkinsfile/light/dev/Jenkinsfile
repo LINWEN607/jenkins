@@ -140,7 +140,7 @@ pipeline {
 
                     // 遍历每个需要部署的模块
                     apps.each { app ->
-                        def remotePath = "/usr/local/www/go/light/app/${app}"
+                        def remotePath = "/usr/local/www/go/light/app/${app}/cmd/${app}"
                         
                         // 获取文件大小和哈希值
                         def fileSize = sh(
