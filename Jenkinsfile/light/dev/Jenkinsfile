@@ -105,7 +105,7 @@ pipeline {
                     apps.each { app ->
                         echo "开始构建模块: ${app}"
                         sh """
-                            cd app/${app}
+                            cd app/${app}/cmd/${app}
                             export GOPROXY=https://goproxy.cn,direct
                             go build -o main main.go
                             mkdir -p /var/jenkins_home/light/${app}
