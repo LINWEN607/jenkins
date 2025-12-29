@@ -157,7 +157,7 @@ pipeline {
                             // 备份旧版本文件
                             sh """
                                 ssh -o StrictHostKeyChecking=no root@${config.host} '
-                                    BASE_NAME="hbe-charge"
+                                    BASE_NAME="light"
                                     DEPLOY_PATH="${remotePath}"
                                     FILE_PATH="\$DEPLOY_PATH/main"
                                     echo "备份旧版本文件..."
