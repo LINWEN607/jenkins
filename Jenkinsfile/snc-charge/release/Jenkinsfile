@@ -183,7 +183,7 @@ pipeline {
                                 "
                                 
                                 # 再复制文件
-                                scp /var/jenkins_home/workspace/snc-charge_release@2/app/${app}/main root@${config.host}:${remotePath}/
+                                scp -P ${config.port} /var/jenkins_home/workspace/snc-charge_release@2/app/${app}/main root@${config.host}:${remotePath}/
                                 
                                 # 最后启动服务
                                 ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
