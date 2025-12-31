@@ -123,9 +123,9 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        dev: [host: "192.168.29.50", sshCredentialId: "test-ssh-key"],
-                        main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
-                        release: [host: "120.77.170.190", sshCredentialId: "dev-ssh-key"]
+                        dev: [host: "52.37.215.246", port: 22,sshCredentialId: "Prd-key"],
+                        main: [host: "192.168.0.210", port: 22,sshCredentialId: "main-ssh-key"],
+                        release: [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
                     ]
 
                     def targetBranch = env.BRANCH_NAME
@@ -154,7 +154,7 @@ pipeline {
                         sshagent([config.sshCredentialId]) {
                             // 备份旧版本文件
                             sh """
-                                ssh -o StrictHostKeyChecking=no root@${config.host} '
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
                                     BASE_NAME="snc-charge"
                                     DEPLOY_PATH="${remotePath}"
                                     FILE_PATH="\$DEPLOY_PATH/main"
@@ -165,7 +165,7 @@ pipeline {
                                         BACKUP_FILE="/data/backup/snc-charge/${app}/\$BASE_NAME-\$TIMESTAMP"
                                         cp "\$FILE_PATH" "\$BACKUP_FILE"
                                         echo "已备份旧文件到: \$BACKUP_FILE"
-                                        ls -t /data/backup/hbe-charge/${app}/\$BASE_NAME-* 2>/dev/null | tail -n +4 | xargs -r rm -f
+                                        ls -t /data/backup/snc-charge/${app}/\$BASE_NAME-* 2>/dev/null | tail -n +4 | xargs -r rm -f
                                         echo "已清理多余备份文件"
                                     else
                                         echo "未找到旧版本文件"
@@ -177,7 +177,7 @@ pipeline {
                             sh """
                                 echo '开始部署模块: ${app}...'
                                 # 先停止服务
-                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '停止旧服务...'
                                     systemctl stop snccharge_${app}
                                 "
@@ -186,7 +186,7 @@ pipeline {
                                 scp /var/jenkins_home/workspace/snc-charge_release@2/app/${app}/main root@${config.host}:${remotePath}/
                                 
                                 # 最后启动服务
-                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '启动新程序...'
                                     systemctl start snccharge_${app}
                                 "
@@ -219,7 +219,7 @@ pipeline {
 """
                             
                             sh """
-                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '${metaContent}' >> ${remotePath}/meta.log
                                 "
                             """
@@ -260,7 +260,7 @@ pipeline {
 > 构建人：${buildUser}
 
 **操作建议**：
-- 可到对应项目分支的环境测试验证功能。（/data/backup/hbe-charge/服务名称）此路径备份此前三个版本的编译文件，可按时间戳区分"""
+- 可到对应项目分支的环境测试验证功能。（/data/backup/snc-charge/服务名称）此路径备份此前三个版本的编译文件，可按时间戳区分"""
                     ],
                     at: [
                         phoneNumber  // 添加手机号到 at 列表
