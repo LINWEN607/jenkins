@@ -186,7 +186,7 @@ pipeline {
                                 
                                 # 再复制文件
                                 scp /var/jenkins_home/light/${app}/main root@${config.host}:${remotePath}/
-                                scp /var/jenkins_home/workspace/${env.JOB_NAME}@2/app/${app}/configs/config.yaml root@${config.host}:/usr/local/www/go/light/app/${app}/mobile/configs/
+                                scp /var/jenkins_home/workspace/${env.JOB_NAME}@2/app/${app}/configs/config.yaml root@${config.host}:/usr/local/www/go/light/app/${app}/configs/
                                 
                                 # 最后启动服务
                                 ssh -o StrictHostKeyChecking=no root@${config.host} "
