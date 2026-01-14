@@ -228,6 +228,63 @@ pipeline {
                 }
             }
         }
+
+        stage('5.检查服务状态') {
+            when {
+                expression { 
+                    env.APPS_TO_BUILD != "未检测到任何模块被修改，无需构建" && 
+                    env.APPS_TO_BUILD != null 
+                }
+            }
+            steps {
+                script {
+                    def apps = env.APPS_TO_BUILD.split(',')
+                    
+                    def deployConfig = [
+                        dev: [host: "52.37.215.246", port: 22,sshCredentialId: "Prd-key"],
+                        main: [host: "192.168.0.210", port: 22,sshCredentialId: "main-ssh-key"],
+                        release: [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
+                    ]
+
+                    def targetBranch = env.BRANCH_NAME
+                    def config = deployConfig[targetBranch]
+
+                    if (!config) {
+                        error("未配置该分支的部署信息: ${targetBranch}")
+                    }
+
+                    // 检查服务状态
+                    def failedServices = []
+                    sshagent([config.sshCredentialId]) {
+                        apps.each { app ->
+                            def result = sh(
+                                script: """
+                                    ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                        if systemctl is-active --quiet snccharge_${app}; then
+                                            echo 'SUCCESS'
+                                        else
+                                            echo 'FAILED'
+                                        fi
+                                    "
+                                """,
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (result == 'FAILED') {
+                                failedServices.add("snccharge_${app}")
+                            }
+                        }
+                    }
+                    
+                    if (failedServices.size() > 0) {
+                        env.FAILED_SERVICES_INFO = failedServices.join(', ')
+                        error("以下服务启动失败: ${failedServices.join(', ')}")
+                    } else {
+                        echo '所有服务启动成功'
+                    }
+                }
+            }
+        }
     }
 
 
