@@ -123,9 +123,9 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        dev: [host: "192.168.29.50", sshCredentialId: "test-ssh-key"],
-                        main: [host: "192.168.0.210", sshCredentialId: "main-ssh-key"],
-                        release: [host: "120.77.170.190", sshCredentialId: "dev-ssh-key"]
+                        dev: [host: "192.168.29.50", port: 22,sshCredentialId: "Prd-key"],
+                        main: [host: "192.168.0.210", port: 22,sshCredentialId: "main-ssh-key"],
+                        release: [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
                     ]
 
                     def targetBranch = env.BRANCH_NAME
@@ -154,7 +154,7 @@ pipeline {
                         sshagent([config.sshCredentialId]) {
                             // 备份旧版本文件
                             sh """
-                                ssh -o StrictHostKeyChecking=no root@${config.host} '
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
                                     BASE_NAME="snc-charge"
                                     DEPLOY_PATH="${remotePath}"
                                     FILE_PATH="\$DEPLOY_PATH/main"
@@ -177,16 +177,16 @@ pipeline {
                             sh """
                                 echo '开始部署模块: ${app}...'
                                 # 先停止服务
-                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '停止旧服务...'
                                     systemctl stop snccharge_${app}
                                 "
                                 
                                 # 再复制文件
-                                scp /var/jenkins_home/workspace/snc-charge_dev@2/app/${app}/main root@${config.host}:${remotePath}/
+                                scp -P ${config.port} /var/jenkins_home/workspace/snc-charge_dev@2/app/${app}/main root@${config.host}:${remotePath}/
                                 
                                 # 最后启动服务
-                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '启动新程序...'
                                     systemctl start snccharge_${app}
                                 "
@@ -219,7 +219,7 @@ pipeline {
 """
                             
                             sh """
-                                ssh -o StrictHostKeyChecking=no root@${config.host} "
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '${metaContent}' >> ${remotePath}/meta.log
                                 "
                             """
