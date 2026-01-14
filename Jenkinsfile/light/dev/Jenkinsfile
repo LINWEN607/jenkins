@@ -125,7 +125,7 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        dev: [host: "192.168.29.50", port: 22,sshCredentialId: "Prd-key"],
+                        dev: [host: "192.168.29.50", port: 22,sshCredentialId: "test-ssh-key"],
                         main: [host: "192.168.0.210", port: 22,sshCredentialId: "main-ssh-key"],
                         release: [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
                     ]
