@@ -187,9 +187,7 @@ pipeline {
                                 # 再复制文件
                                 scp -P ${config.port} /var/jenkins_home/light/${app}/main root@${config.host}:${remotePath}/
                                 
-                                # 复制配置文件（如果非csms模块）
-                                if [[ ! "${app}" =~ csms ]]; then
-                                    mkdir -p /usr/local/www/go/light/app/${app}/configs/
+                                if [ "${app}" != "csms" ]; then
                                     scp -P ${config.port} /var/jenkins_home/workspace/light_dev@2/app/${app}/configs/config.yaml root@${config.host}:/usr/local/www/go/light/app/${app}/configs/
                                     echo '配置文件已复制'
                                 else
