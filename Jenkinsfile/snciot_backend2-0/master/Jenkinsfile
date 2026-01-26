@@ -243,7 +243,10 @@ pipeline {
                                 fi
                             '
                         """
-                        
+                        sh """
+                        rm -f hbe_backend.tar.gz
+                        echo "已清理本地压缩包文件"
+                        """                       
                         // 创建或更新 meta 文件
                         def commitMessage = sh(
                             script: 'git log -1 --pretty=%B',

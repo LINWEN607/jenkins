@@ -258,7 +258,13 @@ pipeline {
                                     sudo systemctl start hbecharge_${app}
                                 "
                             """
-                            
+                            // 部署完成后清理本地文件
+                            sh """
+                            rm -f /var/jenkins_home/${app}/main
+                            rm -f /var/jenkins_home/${app}/main.sha256
+                            rm -f /var/jenkins_home/${app}/main.size
+                            echo "已清理本地构建文件: ${app}"
+                            """                            
                             // 创建或更新 meta 文件
                             def commitMessage = sh(
                                 script: 'git log -1 --pretty=%B',
