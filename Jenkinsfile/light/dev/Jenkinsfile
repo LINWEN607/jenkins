@@ -111,8 +111,8 @@ pipeline {
                             
                             # 计算程序文件的哈希值和文件大小
                             echo "计算哈希值..."
-                            sha256sum main > /var/jenkins_home/workspace/light_dev@2/app/${app}/main.sha256
-                            stat -c %s main > /var/jenkins_home/workspace/light_dev@2/app/${app}/main.size
+                            sha256sum main > main.sha256
+                            stat -c %s main > main.size
                         """
                     }
                 }
