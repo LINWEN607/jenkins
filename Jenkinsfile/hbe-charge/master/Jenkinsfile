@@ -113,13 +113,11 @@ pipeline {
                             cd app/${app}
                             export GOPROXY=https://goproxy.cn,direct
                             go build -o main main.go
-                            mkdir -p /var/jenkins_home/${app}
-                            cp main /var/jenkins_home/${app}/
                             
                             # 计算程序文件的哈希值和文件大小
                             echo "计算哈希值..."
-                            sha256sum main > /var/jenkins_home/${app}/main.sha256
-                            stat -c %s main > /var/jenkins_home/${app}/main.size
+                            sha256sum main > main.sha256
+                            stat -c %s main > main.size
                         """
                     }
                 }
@@ -191,12 +189,12 @@ pipeline {
                         
                         // 获取文件大小和哈希值
                         def fileSize = sh(
-                            script: "cat /var/jenkins_home/${app}/main.size",
+                            script: "cat /var/jenkins_home/workspace/hbe-charge_master@2/app/${app}/main.size",
                             returnStdout: true
                         ).trim()
                         
                         def fileHash = sh(
-                            script: "cat /var/jenkins_home/${app}/main.sha256 | cut -d' ' -f1",
+                            script: "cat /var/jenkins_home/workspace/hbe-charge_master@2/app/${app}/main.sha256 | cut -d' ' -f1",
                             returnStdout: true
                         ).trim()
                         
@@ -214,7 +212,7 @@ pipeline {
                             // 先复制文件到临时目录
                             sh """
                                 echo '开始传输模块文件: ${app}...'
-                                scp -P ${config.port} /var/jenkins_home/${app}/main ec2-user@${config.host}:${remotePath}/scp/
+                                scp -P ${config.port} /var/jenkins_home/workspace/hbe-charge_master@2/app/${app}/main ec2-user@${config.host}:${remotePath}/scp/
                             """
 
                             // 备份旧版本文件
@@ -258,13 +256,7 @@ pipeline {
                                     sudo systemctl start hbecharge_${app}
                                 "
                             """
-                            // 部署完成后清理本地文件
-                            sh """
-                            rm -f /var/jenkins_home/${app}/main
-                            rm -f /var/jenkins_home/${app}/main.sha256
-                            rm -f /var/jenkins_home/${app}/main.size
-                            echo "已清理本地构建文件: ${app}"
-                            """                            
+                    
                             // 创建或更新 meta 文件
                             def commitMessage = sh(
                                 script: 'git log -1 --pretty=%B',
