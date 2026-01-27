@@ -111,8 +111,8 @@ pipeline {
                             
                             # 计算程序文件的哈希值和文件大小
                             echo "计算哈希值..."
-                            sha256sum main > /var/jenkins_home/workspace/light_release@2/app/${app}/main.sha256
-                            stat -c %s main > /var/jenkins_home/workspace/light_release@2/app/${app}/main.size
+                            sha256sum main > main.sha256
+                            stat -c %s main > main.size
                         """
                     }
                 }
@@ -142,12 +142,12 @@ pipeline {
                         
                         // 获取文件大小和哈希值
                         def fileSize = sh(
-                            script: "cat /var/jenkins_home/workspace/light_release@2/app/${app}/main.size",
+                            script: "cat /var/jenkins_home/workspace/light_dev@2/app/${app}/cmd/${app}/main.size",
                             returnStdout: true
                         ).trim()
                         
                         def fileHash = sh(
-                            script: "cat /var/jenkins_home/workspace/light_release@2/app/${app}/main.sha256 | cut -d' ' -f1",
+                            script: "cat /var/jenkins_home/workspace/light_dev@2/app/${app}/cmd/${app}/main.sha256 | cut -d' ' -f1",
                             returnStdout: true
                         ).trim()
                         
@@ -183,7 +183,7 @@ pipeline {
                                 "
                                 
                                 # 再复制文件
-                                scp -P ${config.port} /var/jenkins_home/workspace/light_release@2/app/${app}main root@${config.host}:${remotePath}/
+                                scp -P ${config.port} /var/jenkins_home/workspace/light_dev@2/app/${app}/cmd/${app}/main root@${config.host}:${remotePath}/
                                 
                                 if [ "${app}" != "csms" ]; then
                                     scp -P ${config.port} /var/jenkins_home/workspace/light_release@2/app/${app}/configs/config.yaml root@${config.host}:/usr/local/www/go/src/light/app/${app}/configs/
