@@ -146,12 +146,12 @@ pipeline {
                         
                         // 获取文件大小和哈希值
                         def fileSize = sh(
-                            script: "cat /var/jenkins_home/workspace/hbe-charge_dev@2/app/${app}/main.size",
+                            script: "cat /var/jenkins_home/workspace/hbe-charge/dev@3/app/${app}/main.size",
                             returnStdout: true
                         ).trim()
                         
                         def fileHash = sh(
-                            script: "cat /var/jenkins_home/workspace/hbe-charge_dev@2/app/${app}/main.sha256 | cut -d' ' -f1",
+                            script: "cat /var/jenkins_home/workspace/hbe-charge/dev@3/app/${app}/main.sha256 | cut -d' ' -f1",
                             returnStdout: true
                         ).trim()
                         
@@ -187,7 +187,7 @@ pipeline {
                                 "
                                 
                                 # 再复制文件
-                                scp /var/jenkins_home/workspace/hbe-charge_dev@2/app/${app}/main root@${config.host}:${remotePath}/
+                                scp /var/jenkins_home/workspace/hbe-charge/dev@3/app/${app}/main root@${config.host}:${remotePath}/
                                 
                                 # 最后启动服务
                                 ssh -o StrictHostKeyChecking=no root@${config.host} "
@@ -282,7 +282,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送1',
+                    robot: 'cicd构建推送',
                     type: 'MARKDOWN',
                     title: '构建失败通知',
                     text: [
