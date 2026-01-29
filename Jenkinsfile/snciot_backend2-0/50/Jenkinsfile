@@ -136,7 +136,7 @@ pipeline {
                     }
 
                     // 使用固定的工作空间路径
-                    def outputDir = "/var/jenkins_home/workspace/snciot_backend2-0_50@2/hbe_backend"
+                    def outputDir = "/var/jenkins_home/workspace/snciot_backend2-0/50@3/hbe_backend"
                     
                     // 获取文件夹大小
                     def fileSize = sh(
@@ -153,7 +153,7 @@ pipeline {
                     sshagent([config.sshCredentialId]) {
                         // 压缩本地编译产物并传输到远程服务器
                         sh """
-                            tar -czf hbe_backend.tar.gz -C /var/jenkins_home/workspace/snciot_backend2-0_50@2 hbe_backend
+                            tar -czf hbe_backend.tar.gz -C /var/jenkins_home/workspace/snciot_backend2-0/50@3 hbe_backend
                         """
                         
                         // 传输压缩包到远程服务器
