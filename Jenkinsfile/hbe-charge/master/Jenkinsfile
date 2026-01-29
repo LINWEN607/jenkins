@@ -182,19 +182,20 @@ pipeline {
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
                     }
-
+                     def currentWorkspace = pwd()
+                     echo "当前工作空间路径: ${currentWorkspace}"
                     // 遍历每个需要部署的模块
                     apps.each { app ->
                         def remotePath = "/usr/local/www/go/src/hbe-charge/app/${app}"
                         
                         // 获取文件大小和哈希值
                         def fileSize = sh(
-                            script: "cat /var/jenkins_home/workspace/hbe-charge/master@3/app/${app}/main.size",
+                            script: "cat ${currentWorkspace}/app/${app}/main.size",
                             returnStdout: true
                         ).trim()
                         
                         def fileHash = sh(
-                            script: "cat /var/jenkins_home/workspace/hbe-charge/master@3/app/${app}/main.sha256 | cut -d' ' -f1",
+                            script: "cat ${currentWorkspace}/app/${app}/main.sha256 | cut -d' ' -f1",
                             returnStdout: true
                         ).trim()
                         
@@ -212,7 +213,7 @@ pipeline {
                             // 先复制文件到临时目录
                             sh """
                                 echo '开始传输模块文件: ${app}...'
-                                scp -P ${config.port} /var/jenkins_home/workspace/hbe-charge/master@3/app/${app}/main ec2-user@${config.host}:${remotePath}/scp/
+                                scp -P ${config.port} ${currentWorkspace}/app/${app}/main ec2-user@${config.host}:${remotePath}/scp/
                             """
 
                             // 备份旧版本文件

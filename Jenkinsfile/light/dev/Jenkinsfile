@@ -135,19 +135,20 @@ pipeline {
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
                     }
-
+                     def currentWorkspace = pwd()
+                     echo "当前工作空间路径: ${currentWorkspace}"
                     // 遍历每个需要部署的模块
                     apps.each { app ->
                         def remotePath = "/usr/local/www/go/light/app/${app}/cmd/${app}/"
                         
                         // 获取文件大小和哈希值
                         def fileSize = sh(
-                            script: "cat /var/jenkins_home/workspace/light/dev@3/app/${app}/cmd/${app}/main.size",
+                            script: "cat ${currentWorkspace}/app/${app}/cmd/${app}/main.size",
                             returnStdout: true
                         ).trim()
                         
                         def fileHash = sh(
-                            script: "cat /var/jenkins_home/workspace/light/dev@3/app/${app}/cmd/${app}/main.sha256 | cut -d' ' -f1",
+                            script: "cat ${currentWorkspace}/app/${app}/cmd/${app}/main.sha256 | cut -d' ' -f1",
                             returnStdout: true
                         ).trim()
                         
@@ -183,10 +184,10 @@ pipeline {
                                 "
                                 
                                 # 再复制文件
-                                scp -P ${config.port} /var/jenkins_home/workspace/light/dev@3/app/${app}/cmd/${app}/main root@${config.host}:${remotePath}/
+                                scp -P ${config.port} ${currentWorkspace}/app/${app}/cmd/${app}/main root@${config.host}:${remotePath}/
                                 
                                 if [ "${app}" != "csms" ]; then
-                                    scp -P ${config.port} /var/jenkins_home/workspace/light/dev@3/app/${app}/configs/config.yaml root@${config.host}:/usr/local/www/go/light/app/${app}/configs/
+                                    scp -P ${config.port} ${currentWorkspace}/app/${app}/configs/config.yaml root@${config.host}:/usr/local/www/go/light/app/${app}/configs/
                                     echo '配置文件已复制'
                                 else
                                     echo '跳过csms模块配置文件复制'
