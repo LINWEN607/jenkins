@@ -139,7 +139,8 @@ pipeline {
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
                     }
-
+                     def currentWorkspace = pwd()
+                     echo "当前工作空间路径: ${currentWorkspace}"
                     // 遍历每个需要部署的模块
                     apps.each { app ->
                         def remotePath = "/usr/local/www/go/hbe-charge/app/${app}"
