@@ -180,6 +180,7 @@ pipeline {
                     }
 
                     // 使用固定的工作空间路径
+                    def currentWorkspace = pwd()
                     def outputDir = "${currentWorkspace}/hbe_backend"
                     
                     // 获取文件夹大小
