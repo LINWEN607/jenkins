@@ -357,7 +357,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送',
+                    robot: 'cicd构建推送1',
                     type: 'MARKDOWN',
                     title: '构建中止通知',
                     text: [
