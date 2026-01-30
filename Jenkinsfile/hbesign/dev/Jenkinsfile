@@ -148,7 +148,7 @@ pipeline {
                         
                         // 传输压缩包到远程服务器
                         sh """
-                            scp -p ${config.port} -o StrictHostKeyChecking=no hbe_backend.tar.gz root@${config.host}:${remotePath}
+                            scp -P ${config.port} -o StrictHostKeyChecking=no hbeSignDist.tar.gz root@${config.host}:${remotePath}
                         """
                         
                         // 在远程服务器上执行所有操作：备份、解压、重命名、清理
