@@ -1,0 +1,390 @@
+def userPhoneMap = [
+    'lins': '13612373427',
+    'dlcios': '13048932770',
+    'ganxiaoyu': '15549814468',
+    'gxy': '15549814468',
+    'linwen': '18888888888'
+]
+
+
+pipeline {
+    agent {
+        node {
+            label "master"
+        }
+    }
+    tools {
+        // 添加 Node.js 工具，使用支持Vite的版本
+        nodejs 'NodeJS 16.20.0'  // 使用支持Vite的Node.js版本（14.18.0+）
+    }
+
+
+
+    stages {
+        stage('1.拉取代码') {
+            steps {
+                script {
+                    def git_address = "http://10.255.5.150/cloud-vue/hbesign.git"
+                    def git_auth = "git-root"
+                    def git_branch = env.BRANCH_NAME
+
+                    git(
+                        branch: git_branch, 
+                        credentialsId: git_auth, 
+                        url: git_address
+                    )
+
+                    // 在这里动态赋值 PROJECT_NAME
+                    env.PROJECT_NAME = sh(
+                        script: """
+                            echo ${env.GIT_URL} | awk -F'/' '{print \$NF}' | sed 's/\\..*//'
+                        """,
+                        returnStdout: true
+                    ).trim()
+                    
+                    // 获取 Git 修订版本
+                    env.GIT_COMMIT = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+                    
+                    // 获取当前日期时间
+                    env.BUILD_TIME = sh(
+                        script: 'date "+%Y-%m-%d %H:%M:%S"',
+                        returnStdout: true
+                    ).trim()
+                    
+                }
+            }
+        }
+
+        stage('2.Vite编译') {
+            steps {
+                script {
+                    // 显示当前Node.js和npm版本
+                    sh 'node --version'
+                    sh 'npm --version'
+                    
+                    // 配置npm镜像
+                    sh 'npm config set registry https://registry.npmmirror.com'
+                    sh 'npm config set sass_binary_site=https://npm.taobao.org/mirrors/node-sass'
+                    
+                    
+
+                    // 安装cnpm全局工具
+                    sh 'npm install -g cnpm --registry=https://registry.npmmirror.com'
+                    
+                    // 显式安装关键依赖以解决构建时找不到模块的问题
+                    sh 'cnpm install lodash --save'
+                    sh 'cnpm install dayjs --save'
+                    sh 'cnpm install @vueuse/core --save'
+                    
+                    // 安装项目依赖（包括vite）
+                    sh 'cnpm install'
+                    
+                    // 验证vite是否正确安装
+                    sh 'ls -la node_modules/.bin/vite'
+                    
+                    // 显示项目根目录结构
+                    sh 'ls -la'
+                    
+                    // 执行Vite构建
+                    sh 'npm run build'
+
+                    // 使用固定的工作空间路径
+                    def currentWorkspace = pwd()
+                    def outputDir = "${currentWorkspace}/hbeSignDist"
+                    def dirExists = sh(
+                        script: "if [ -d \"${outputDir}\" ]; then echo \"true\"; else echo \"false\"; fi",
+                        returnStdout: true
+                    ).trim()
+
+                    if (dirExists != "true") {
+                        echo "构建完成但未生成hbe_backend目录，检查构建配置"
+                        echo "当前工作空间路径: ${outputDir}"
+                        sh 'ls -la'
+                        error("Vite构建失败，未生成hbe_backend目录")
+                    }
+
+                    // 显示构建输出目录内容
+                    sh "ls -la ${outputDir}/"
+                    
+                    // 验证构建是否成功
+                    if (!fileExists("${outputDir}/index.html")) {
+                        // 检查是否有其他HTML文件
+                        sh "find ${outputDir}/hbe_backend -name \"*.html\" -type f"
+                        error("Vite 构建失败，未生成 index.html 文件")
+                    }
+                }
+            }
+        }
+
+        stage('3.部署程序') {
+            steps {
+                script {
+                    def deployConfig = [
+                        "dev": [host: "10.255.5.150",port: 22, sshCredentialId: "test-ssh-key"],
+                        "main": [host: "192.168.0.210", port: 22,sshCredentialId: "main-ssh-key"],
+                        "release": [host: "120.77.170.190", port: 22,sshCredentialId: "dev-ssh-key"]
+                    ]
+
+                    def targetBranch = env.BRANCH_NAME
+                    def config = deployConfig[targetBranch]
+                    def remotePath = "/var/www/hbesign"
+
+                    if (!config) {
+                        error("未配置该分支的部署信息: ${targetBranch}")
+                    }
+
+                    // 使用固定的工作空间路径
+                    def currentWorkspace = pwd()
+                    def outputDir = "${currentWorkspace}/hbeSignDist"
+                    
+                    // 获取文件夹大小
+                    def fileSize = sh(
+                        script: "du -sh ${outputDir} | cut -f1",
+                        returnStdout: true
+                    ).trim()
+                    
+                    // 获取文件夹哈希值
+                    def fileHash = sh(
+                        script: "find ${outputDir} -type f -exec sha256sum {} \\; | sha256sum | cut -d' ' -f1",
+                        returnStdout: true
+                    ).trim()
+                    
+                    sshagent([config.sshCredentialId]) {
+                        // 压缩本地编译产物并传输到远程服务器
+                        sh """
+                            cd ${currentWorkspace}
+                            tar -czf hbeSignDist.tar.gz hbeSignDist
+                        """
+                        
+                        // 传输压缩包到远程服务器
+                        sh """
+                            scp -p ${config.port} -o StrictHostKeyChecking=no hbe_backend.tar.gz root@${config.host}:${remotePath}
+                        """
+                        
+                        // 在远程服务器上执行所有操作：备份、解压、重命名、清理
+                        sh """
+                            ssh ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
+                                DEPLOY_PATH="${remotePath}"
+                                FOLDER_PATH="\$DEPLOY_PATH/hbeSignDist"
+                                
+                                # 备份旧版本文件夹
+                                echo "备份旧版本文件夹..."
+                                if [ -d "\$FOLDER_PATH" ]; then
+                                    TIMESTAMP=\$(date +%Y%m%d%H%M%S)
+                                    BACKUP_FOLDER="\$DEPLOY_PATH/hbeSignDist_\$TIMESTAMP"
+                                    mv "\$FOLDER_PATH" "\$BACKUP_FOLDER"
+                                    echo "已备份旧文件夹到: \$BACKUP_FOLDER"
+                                else
+                                    echo "未找到旧版本文件夹"
+                                fi
+                                
+                                # 解压新版本
+                                cd ${remotePath}
+                                tar -xzf hbeSignDist.tar.gz
+                                rm -f hbeSignDist.tar.gz
+                                echo "部署完成"
+                                
+                                # 判断备份文件夹数量是否超过4个，超过则删除时间戳最早的
+                                BACKUP_COUNT=\$(ls -d \$DEPLOY_PATH/hbeSignDist_* 2>/dev/null | wc -l)
+                                if [ \$BACKUP_COUNT -gt 4 ]; then
+                                    OLDEST_FOLDER=\$(ls -td \$DEPLOY_PATH/hbeSignDist_* | tail -1)
+                                    rm -rf "\$OLDEST_FOLDER"
+                                    echo "已删除最早的备份文件夹: \$OLDEST_FOLDER"
+                                fi
+                            '
+                        """
+                        sh """
+                        rm -f hbeSignDist.tar.gz
+                        echo "已清理本地压缩包文件"
+                        """
+                        // 创建或更新 meta 文件
+                        def commitMessage = sh(
+                            script: 'git log -1 --pretty=%B',
+                            returnStdout: true
+                        ).trim()
+                        
+                        def buildStatus = "SUCCESS"
+                        if (currentBuild.result) {
+                            buildStatus = currentBuild.result
+                        }
+                        
+                        def metaContent = """# 构建元数据信息
+软件版本号: ${env.BUILD_TIME.replaceAll(" ", "_")}
+发布日期和时间: ${env.BUILD_TIME}
+归属的项目: ${env.PROJECT_NAME}
+代码仓库: ${env.GIT_URL}
+分支: ${env.BRANCH_NAME}
+对应 revision: ${env.GIT_COMMIT}
+文件夹大小: ${fileSize}
+文件夹 hash(sha256): ${fileHash}
+主要修改描述: ${commitMessage}
+
+构建时间: ${new Date().format("yyyy-MM-dd HH:mm:ss")}
+构建状态: ${buildStatus}
+"""
+                        
+                        sh """
+                            ssh ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                echo '${metaContent}' >> ${remotePath}/meta.log
+                            "
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                // 获取提交者的手机号
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送1',
+                    type: 'MARKDOWN',
+                    title: '构建成功通知',
+                    text: [
+                        """###  构建成功
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：前端Vite项目
+- **任务状态**：构建成功
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+
+**操作建议**：
+- 可到对应项目分支的环境测试验证功能。（/usr/local/www/web/）此路径备份此前四个版本的文件，可按时间戳区分"""
+                    ],
+                    at: [
+                        phoneNumber  // 添加手机号到 at 列表
+                    ]
+                )
+            }
+        }
+        
+        failure {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                // 获取提交者的手机号
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                
+                dingtalk (
+                    robot: 'cicd构建推送1',
+                    type: 'MARKDOWN',
+                    title: '构建失败通知',
+                    text: [
+                        """###  构建失败
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：前端Vite项目
+- **任务状态**：构建失败
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+
+**操作建议**：
+- 请联系林文进行排查"""
+                    ],
+                    at: [
+                        phoneNumber  // 添加手机号到 at 列表
+                    ]
+                )
+            }
+        }
+
+        unstable {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                // 获取提交者的手机号
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送',
+                    type: 'MARKDOWN',
+                    title: '构建不稳定通知',
+                    text: [
+                        """###  构建不稳定
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：前端Vite项目
+- **任务状态**：构建不稳定
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+
+**操作建议**：
+- 请联系林文进行排查"""
+                    ],
+                    at: [
+                        phoneNumber  // 添加手机号到 at 列表
+                    ]
+                )
+            }
+        }
+
+        aborted {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                // 获取提交者的手机号
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送',
+                    type: 'MARKDOWN',
+                    title: '构建中止通知',
+                    text: [
+                        """###  构建被中止
+                    
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：前端Vite项目
+- **任务状态**：构建中止
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+
+**操作建议**：
+- 请确认是否是人为中止或交互式中止（生产环境上线前期部署阶段需交互式确认）"""
+                    ],
+                    at: [
+                        phoneNumber  // 添加手机号到 at 列表
+                    ]
+                )
+            }
+        }
+    }
+}
