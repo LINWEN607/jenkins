@@ -77,10 +77,8 @@ pipeline {
                     sh 'ls -la'
                     
                     // 执行Vite构建
-                    sh '''
-                      export VITE_ENABLE_OBFUSCATE=false
-                      npm run build
-                    '''
+                    sh 'npm run build'
+
                     // 使用固定的工作空间路径
                     def currentWorkspace = pwd()
                     def outputDir = "${currentWorkspace}/hbeSignDist"
