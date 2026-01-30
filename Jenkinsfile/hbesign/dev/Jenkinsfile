@@ -117,7 +117,7 @@ pipeline {
 
                     def targetBranch = env.BRANCH_NAME
                     def config = deployConfig[targetBranch]
-                    def remotePath = "/var/www/hbesign/"
+                    def remotePath = "/var/www/hbesign/hbeSignDist"
 
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
