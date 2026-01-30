@@ -14,8 +14,8 @@ pipeline {
         }
     }
     tools {
-        // 添加 Node.js 工具，使用支持Vite的版本
-        nodejs 'NodeJS 16.20.0'  // 使用支持Vite的Node.js版本（14.18.0+）
+        
+        nodejs 'NodeJS 22.2.0'  
     }
 
 
@@ -61,9 +61,7 @@ pipeline {
         stage('2.Vite编译') {
             steps {
                 script {
-                    // 显示当前Node.js和npm版本
-                    sh 'node --version'
-                    sh 'npm --version'
+
                     
                     // 配置npm镜像
                     sh 'npm config set registry https://registry.npmmirror.com'
@@ -74,10 +72,6 @@ pipeline {
                     // 安装cnpm全局工具
                     sh 'npm install -g cnpm --registry=https://registry.npmmirror.com'
                     
-                    // 显式安装关键依赖以解决构建时找不到模块的问题
-                    sh 'cnpm install lodash --save'
-                    sh 'cnpm install dayjs --save'
-                    sh 'cnpm install @vueuse/core --save'
                     
                     // 安装项目依赖（包括vite）
                     sh 'cnpm install'
@@ -130,7 +124,7 @@ pipeline {
 
                     def targetBranch = env.BRANCH_NAME
                     def config = deployConfig[targetBranch]
-                    def remotePath = "/var/www/hbesign"
+                    def remotePath = "/var/www/hbesign/"
 
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
@@ -168,7 +162,7 @@ pipeline {
                         sh """
                             ssh ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
                                 DEPLOY_PATH="${remotePath}"
-                                FOLDER_PATH="\$DEPLOY_PATH/hbeSignDist"
+                                FOLDER_PATH="\$DEPLOY_PATH"
                                 
                                 # 备份旧版本文件夹
                                 echo "备份旧版本文件夹..."
