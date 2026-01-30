@@ -117,7 +117,7 @@ pipeline {
 
                     def targetBranch = env.BRANCH_NAME
                     def config = deployConfig[targetBranch]
-                    def remotePath = "/var/www/hbesign/hbeSignDist"
+                    def remotePath = "/var/www/hbesign/"
 
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
@@ -155,7 +155,7 @@ pipeline {
                         sh """
                             ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
                                 DEPLOY_PATH="${remotePath}"
-                                FOLDER_PATH="\$DEPLOY_PATH"
+                                FOLDER_PATH="${remotePath}/hbeSignDist"
                                 
                                 # 备份旧版本文件夹
                                 echo "备份旧版本文件夹..."
