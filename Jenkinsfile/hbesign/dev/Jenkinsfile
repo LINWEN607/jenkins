@@ -153,7 +153,7 @@ pipeline {
                         
                         // 在远程服务器上执行所有操作：备份、解压、重命名、清理
                         sh """
-                            ssh ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
+                            ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
                                 DEPLOY_PATH="${remotePath}"
                                 FOLDER_PATH="\$DEPLOY_PATH"
                                 
@@ -253,7 +253,7 @@ pipeline {
 > 构建人：${buildUser}
 
 **操作建议**：
-- 可到对应项目分支的环境测试验证功能。（/usr/local/www/web/）此路径备份此前四个版本的文件，可按时间戳区分"""
+- 可到对应项目分支的环境测试验证功能。（/var/www/hbesign/）此路径备份此前四个版本的文件，可按时间戳区分"""
                     ],
                     at: [
                         phoneNumber  // 添加手机号到 at 列表
