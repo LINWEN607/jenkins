@@ -69,21 +69,15 @@ pipeline {
                     
                     // 安装项目依赖（包括vite）
                     sh 'cnpm install'
-                    
-                    //清除构建缓存
-                    sh 'rm -rf node_modules/.vite'
-                    sh 'rm -rf dist ocpp_cmd hbeSignDist'
+                
 
                     // 验证vite是否正确安装
                     sh 'ls -la node_modules/.bin/vite'
                     
                     
                     // 执行Vite构建
-                    sh '''
-                    export VITE_ENABLE_OBFUSCATE=false
-                    export NODE_ENV=production
-                    npm run build
-                '''
+                    sh 'npm run build'
+
                     // 使用固定的工作空间路径
                     def currentWorkspace = pwd()
                     def outputDir = "${currentWorkspace}/hbeSignDist"
