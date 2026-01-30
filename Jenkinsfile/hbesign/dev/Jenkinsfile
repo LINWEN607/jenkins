@@ -62,13 +62,7 @@ pipeline {
             steps {
                 script {
 
-                    
-                    // 配置npm镜像
-                    sh 'npm config set registry https://registry.npmmirror.com'
-                    sh 'npm config set sass_binary_site=https://npm.taobao.org/mirrors/node-sass'
-                    
-                    
-
+                
                     // 安装cnpm全局工具
                     sh 'npm install -g cnpm --registry=https://registry.npmmirror.com'
                     
