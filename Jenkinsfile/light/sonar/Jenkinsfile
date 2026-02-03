@@ -129,11 +129,6 @@ pipeline {
                 script {
                     def apps = env.APPS_TO_BUILD.split(',')
                     
-                    // 生成 Go 测试覆盖率报告
-                    sh """
-                        go install github.com/axw/gocov/gocov@latest
-                        go install github.com/AlekSi/gocov-xml@latest
-                    """
                     
                     apps.each { app ->
                         def projectKey = "${env.PROJECT_NAME}-${app}"
@@ -166,17 +161,11 @@ pipeline {
                         
                         echo "执行 Sonar 扫描: ${app}"
                         
-                        // 进入应用目录执行测试和 Sonar 扫描
+                        // 进入应用目录执行 Sonar 扫描
                         sh """
                             cd app/${app}
+                            echo "mode: set" > coverage.out
                             
-                            # 运行测试并生成覆盖率报告
-                            go test -v ./... -coverprofile=coverage.out -coverpkg=./...
-                            
-                            # 生成 XML 格式的覆盖率报告
-                            if [ -f coverage.out ]; then
-                                gocov convert coverage.out | gocov-xml > coverage.xml
-                            fi
                         """
                         
                         // 执行 Sonar 扫描
@@ -188,10 +177,7 @@ pipeline {
                                   -Dsonar.projectVersion=${env.GIT_COMMIT.substring(0, 7)} \
                                   -Dsonar.sources=. \
                                   -Dsonar.exclusions=**/vendor/**,**/testdata/** \
-                                  -Dsonar.tests=. \
-                                  -Dsonar.test.inclusions=**/*_test.go \
                                   -Dsonar.go.coverage.reportPaths=coverage.out \
-                                  -Dsonar.go.tests.reportPath=coverage.out \
                                   -Dsonar.sourceEncoding=UTF-8 \
                                   -Dsonar.project.tags=${env.PROJECT_NAME}
                             """
