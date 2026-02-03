@@ -13,7 +13,6 @@ pipeline {
     }
     tools {
         go 'go1.23'
-        
     }
 
     environment {
@@ -137,8 +136,48 @@ pipeline {
                     """
                     
                     apps.each { app ->
+                        def projectKey = "${env.PROJECT_NAME}-${app}"
+
+                        // 配置 SonarQube Webhook
+                        script {
+                            def projectKey = "${env.PROJECT_NAME}-${app}"
+
+                            // 查询是否已有 webhook
+                            def check = sh(
+                                script: """
+                                    curl -s -H "Authorization: Bearer ${env.sonar_api_key}" "http://192.168.31.195:9020/api/webhooks/list?projectKey=${projectKey}" | grep -c "jenkins"
+                                """,
+                                returnStdout: true
+                            ).trim()
+
+                            if (check == "0") {
+                                echo "Webhook 不存在，正在创建..."
+                                sh """
+                                    curl -H "Authorization: Bearer ${env.sonar_api_key}" \
+                                      -X POST "http://192.168.31.195:9020/api/webhooks/create" \
+                                      -d "projectKey=${projectKey}" \
+                                      -d "name=jenkins" \
+                                      -d "url=http://192.168.31.195:8080/sonarqube-webhook/"
+                                """
+                            } else {
+                                echo "Webhook 已存在，跳过创建。"
+                            }
+                        }
+                        
                         echo "执行 Sonar 扫描: ${app}"
                         
+                        // 进入应用目录执行测试和 Sonar 扫描
+                        sh """
+                            cd app/${app}
+                            
+                            # 运行测试并生成覆盖率报告
+                            go test -v ./... -coverprofile=coverage.out -coverpkg=./...
+                            
+                            # 生成 XML 格式的覆盖率报告
+                            if [ -f coverage.out ]; then
+                                gocov convert coverage.out | gocov-xml > coverage.xml
+                            fi
+                        """
                         
                         // 执行 Sonar 扫描
                         withSonarQubeEnv('SonarServer') {  
@@ -155,7 +194,6 @@ pipeline {
                                   -Dsonar.go.tests.reportPath=coverage.out \
                                   -Dsonar.sourceEncoding=UTF-8 \
                                   -Dsonar.project.tags=${env.PROJECT_NAME}
-
                             """
                         }
                     }
