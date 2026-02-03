@@ -17,9 +17,7 @@ pipeline {
     }
 
     environment {
-        PATH = "${env.GOPATH}:${env.PATH}"
-        SONAR_HOME = tool 'sonar-scanner'  
-        PATH = "${env.PATH}:${SONAR_HOME}/bin"
+        PATH = "${env.GOPATH}:${env.PATH}:${tool('sonar-scanner')}/bin"
     }
 
     stages {
@@ -141,18 +139,6 @@ pipeline {
                     apps.each { app ->
                         echo "执行 Sonar 扫描: ${app}"
                         
-                        // 进入应用目录执行测试和 Sonar 扫描
-                        sh """
-                            cd app/${app}
-                            
-                            # 运行测试并生成覆盖率报告
-                            go test -v ./... -coverprofile=coverage.out -coverpkg=./...
-                            
-                            # 生成 XML 格式的覆盖率报告
-                            if [ -f coverage.out ]; then
-                                gocov convert coverage.out | gocov-xml > coverage.xml
-                            fi
-                        """
                         
                         // 执行 Sonar 扫描
                         withSonarQubeEnv('SonarServer') {  
@@ -168,7 +154,6 @@ pipeline {
                                   -Dsonar.go.coverage.reportPaths=coverage.out \
                                   -Dsonar.go.tests.reportPath=coverage.out \
                                   -Dsonar.sourceEncoding=UTF-8 \
-                                  -Dsonar.branch.name=${env.BRANCH_NAME} \
                                   -Dsonar.project.tags=${env.PROJECT_NAME}
 
                             """
