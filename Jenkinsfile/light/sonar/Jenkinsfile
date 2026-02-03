@@ -13,12 +13,12 @@ pipeline {
     }
     tools {
         go 'go1.23'
-        // 需要预先在 Jenkins 工具配置中设置 Sonar Scanner
+        
     }
 
     environment {
         PATH = "${env.GOPATH}:${env.PATH}"
-        SONAR_HOME = tool 'sonar-scanner'  // 假设在工具配置中名为 sonar-scanner
+        SONAR_HOME = tool 'sonar-scanner'  
         PATH = "${env.PATH}:${SONAR_HOME}/bin"
     }
 
@@ -155,7 +155,7 @@ pipeline {
                         """
                         
                         // 执行 Sonar 扫描
-                        withSonarQubeEnv('MySonarServer') {  // 这里替换为实际的 SonarQube 服务器名称
+                        withSonarQubeEnv('SonarServer') {  
                             sh """
                                 sonar-scanner \
                                   -Dsonar.projectKey=${env.PROJECT_NAME}-${app} \
