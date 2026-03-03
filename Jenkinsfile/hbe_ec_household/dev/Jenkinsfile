@@ -71,8 +71,8 @@ pipeline {
 
                     // 遍历所有修改的文件，确定它们属于哪些模块
                     changedFiles.each { file ->
-                        if (file.startsWith('app/backend/')) {
-                            modifiedApps.add('backend')
+                        if (file.startsWith('app/fronted/')) {
+                            modifiedApps.add('fronted')
                         } else if (file.startsWith('app/csms1.6/')) {
                             modifiedApps.add('csms1.6')
                         }
