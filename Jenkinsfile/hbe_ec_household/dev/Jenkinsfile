@@ -178,7 +178,7 @@ pipeline {
                                 # 先停止服务
                                 ssh -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '停止旧服务...'
-                                    systemctl stop hbe_ec_household_${app}
+                                    systemctl stop hbeechousehold_${app}
                                 "
                                 
                                 # 再复制文件
@@ -187,7 +187,7 @@ pipeline {
                                 # 最后启动服务
                                 ssh -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '启动新程序...'
-                                    systemctl start hbe_ec_household_${app}
+                                    systemctl start hbeechousehold_${app}
                                 "
                             """
                             

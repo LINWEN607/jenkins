@@ -221,7 +221,7 @@ pipeline {
                                 # 先停止服务
                                 ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '停止旧服务...'
-                                    sudo systemctl stop hbe_ec_household_${app}
+                                    sudo systemctl stop hbeechousehold_${app}
                                 "
                                 
                                 # 再复制文件
@@ -230,7 +230,7 @@ pipeline {
                                 # 最后启动服务
                                 ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
                                     echo '启动新程序...'
-                                    sudo systemctl start hbe_ec_household_${app}
+                                    sudo systemctl start hbeechousehold_${app}
                                 "
                             """        
                             // 创建或更新 meta 文件
