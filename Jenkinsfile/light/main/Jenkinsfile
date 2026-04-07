@@ -320,7 +320,7 @@ pipeline {
                         apps.each { app ->
                             def result = sh(
                                 script: """
-                                    ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                    ssh -p ${config.port} -o StrictHostKeyChecking=no ec2-user@${config.host} "
                                         if sudo systemctl is-active --quiet light_${app}; then
                                             echo 'SUCCESS'
                                         else
