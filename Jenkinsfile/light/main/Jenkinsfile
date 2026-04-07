@@ -290,6 +290,62 @@ pipeline {
                 }
             }
         }
+        stage('5.检查服务状态') {
+            when {
+                expression { 
+                    env.APPS_TO_BUILD != "未检测到任何模块被修改，无需构建" && 
+                    env.APPS_TO_BUILD != null 
+                }
+            }
+            steps {
+                script {
+                    def apps = env.APPS_TO_BUILD.split(',')
+                    
+                    def deployConfig = [
+                        dev: [host: "192.168.29.50", port: 22,sshCredentialId: "test-ssh-key"],
+                        main: [host: "52.37.215.246", port: 22,sshCredentialId: "Prd-key"],
+                        release: [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
+                    ]
+
+                    def targetBranch = env.BRANCH_NAME
+                    def config = deployConfig[targetBranch]
+
+                    if (!config) {
+                        error("未配置该分支的部署信息: ${targetBranch}")
+                    }
+
+                    // 检查服务状态
+                    def failedServices = []
+                    sshagent([config.sshCredentialId]) {
+                        apps.each { app ->
+                            def result = sh(
+                                script: """
+                                    ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                        if sudo systemctl is-active --quiet light_${app}; then
+                                            echo 'SUCCESS'
+                                        else
+                                            echo 'FAILED'
+                                        fi
+                                    "
+                                """,
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (result == 'FAILED') {
+                                failedServices.add("light_${app}")
+                            }
+                        }
+                    }
+                    
+                    if (failedServices.size() > 0) {
+                        env.FAILED_SERVICES_INFO = failedServices.join(', ')
+                        error("以下服务启动失败: ${failedServices.join(', ')}")
+                    } else {
+                        echo '所有服务启动成功'
+                    }
+                }
+            }
+        }
     }
 
 
@@ -303,7 +359,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-生产环境',
+                    robot: 'cicd构建推送-生产环境1',
                     type: 'MARKDOWN',
                     title: '构建成功通知',
                     text: [
@@ -340,7 +396,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-生产环境',
+                    robot: 'cicd构建推送-生产环境1',
                     type: 'MARKDOWN',
                     title: '构建失败通知',
                     text: [
