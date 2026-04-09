@@ -130,7 +130,7 @@ pipeline {
 
                     def targetBranch = env.BRANCH_NAME
                     def config = deployConfig[targetBranch]
-                    def remotePath = "/usr/local/www/web/"
+                    def remotePath = "/usr/local/www/web/hbe_backend-web/"
 
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
