@@ -93,7 +93,7 @@ pipeline {
 
                     // 使用固定的工作空间路径
                     def currentWorkspace = pwd()
-                    def outputDir = "${currentWorkspace}/auracharge"
+                    def outputDir = "${currentWorkspace}/AuraCharge_backend"
                     def dirExists = sh(
                         script: "if [ -d \"${outputDir}\" ]; then echo \"true\"; else echo \"false\"; fi",
                         returnStdout: true
@@ -112,7 +112,7 @@ pipeline {
                     // 验证构建是否成功
                     if (!fileExists("${outputDir}/index.html")) {
                         // 检查是否有其他HTML文件
-                        sh "find ${outputDir}/auracharge -name \"*.html\" -type f"
+                        sh "find ${outputDir}/AuraCharge_backend -name \"*.html\" -type f"
                         error("Vite 构建失败，未生成 index.html 文件")
                     }
                 }
@@ -138,7 +138,7 @@ pipeline {
 
                     // 使用固定的工作空间路径
                     def currentWorkspace = pwd()
-                    def outputDir = "${currentWorkspace}/auracharge"
+                    def outputDir = "${currentWorkspace}/AuraCharge_backend"
                     
                     // 获取文件夹大小
                     def fileSize = sh(
@@ -156,25 +156,25 @@ pipeline {
                         // 压缩本地编译产物并传输到远程服务器
                         sh """
                             cd ${currentWorkspace}
-                            tar -czf auracharge.tar.gz auracharge
+                            tar -czf AuraCharge_backend.tar.gz AuraCharge_backend
                         """
                         
                         // 传输压缩包到远程服务器
                         sh """
-                            scp -o StrictHostKeyChecking=no auracharge.tar.gz root@${config.host}:${remotePath}
+                            scp -o StrictHostKeyChecking=no AuraCharge_backend.tar.gz root@${config.host}:${remotePath}
                         """
                         
                         // 在远程服务器上执行所有操作：备份、解压、重命名、清理
                         sh """
                             ssh -o StrictHostKeyChecking=no root@${config.host} '
                                 DEPLOY_PATH="${remotePath}"
-                                FOLDER_PATH="\$DEPLOY_PATH/auracharge"
+                                FOLDER_PATH="\$DEPLOY_PATH/AuraCharge_backend"
                                 
                                 # 备份旧版本文件夹
                                 echo "备份旧版本文件夹..."
                                 if [ -d "\$FOLDER_PATH" ]; then
                                     TIMESTAMP=\$(date +%Y%m%d%H%M%S)
-                                    BACKUP_FOLDER="\$DEPLOY_PATH/auracharge_\$TIMESTAMP"
+                                    BACKUP_FOLDER="\$DEPLOY_PATH/AuraCharge_backend_\$TIMESTAMP"
                                     mv "\$FOLDER_PATH" "\$BACKUP_FOLDER"
                                     echo "已备份旧文件夹到: \$BACKUP_FOLDER"
                                 else
@@ -183,21 +183,21 @@ pipeline {
                                 
                                 # 解压新版本
                                 cd ${remotePath}
-                                tar -xzf auracharge.tar.gz
-                                rm -f auracharge.tar.gz
+                                tar -xzf AuraCharge_backend.tar.gz
+                                rm -f AuraCharge_backend.tar.gz
                                 echo "部署完成"
                                 
                                 # 判断备份文件夹数量是否超过4个，超过则删除时间戳最早的
-                                BACKUP_COUNT=\$(ls -d \$DEPLOY_PATH/auracharge_* 2>/dev/null | wc -l)
+                                BACKUP_COUNT=\$(ls -d \$DEPLOY_PATH/AuraCharge_backend* 2>/dev/null | wc -l)
                                 if [ \$BACKUP_COUNT -gt 4 ]; then
-                                    OLDEST_FOLDER=\$(ls -td \$DEPLOY_PATH/auracharge_* | tail -1)
+                                    OLDEST_FOLDER=\$(ls -td \$DEPLOY_PATH/AuraCharge_backend* | tail -1)
                                     rm -rf "\$OLDEST_FOLDER"
                                     echo "已删除最早的备份文件夹: \$OLDEST_FOLDER"
                                 fi
                             '
                         """
                         sh """
-                        rm -f auracharge.tar.gz
+                        rm -f AuraCharge_backend.tar.gz
                         echo "已清理本地压缩包文件"
                         """
                         // 创建或更新 meta 文件
