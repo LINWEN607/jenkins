@@ -101,10 +101,10 @@ pipeline {
                     ).trim()
 
                     if (dirExists != "true") {
-                        echo "构建完成但未生成hbe_backend目录，检查构建配置"
+                        echo "构建完成但未生成lighting-admin目录，检查构建配置"
                         echo "当前工作空间路径: ${outputDir}"
                         sh 'ls -la'
-                        error("Vite构建失败，未生成hbe_backend目录")
+                        error("Vite构建失败，未生成lighting-admin目录")
                     }
 
                     // 显示构建输出目录内容
@@ -113,7 +113,7 @@ pipeline {
                     // 验证构建是否成功
                     if (!fileExists("${outputDir}/index.html")) {
                         // 检查是否有其他HTML文件
-                        sh "find ${outputDir}/hbe_backend -name \"*.html\" -type f"
+                        sh "find ${outputDir}/lighting-admin -name \"*.html\" -type f"
                         error("Vite 构建失败，未生成 index.html 文件")
                     }
                 }
@@ -173,7 +173,7 @@ pipeline {
 
                     def targetBranch = env.BRANCH_NAME
                     def config = deployConfig[targetBranch]
-                    def remotePath = "/usr/local/www/web/frontend/"
+                    def remotePath = "/usr/local/www/web/"
 
                     if (!config) {
                         error("未配置该分支的部署信息: ${targetBranch}")
@@ -181,7 +181,7 @@ pipeline {
 
                     // 使用固定的工作空间路径
                     def currentWorkspace = pwd()
-                    def outputDir = "${currentWorkspace}/hbe_backend"
+                    def outputDir = "${currentWorkspace}/lighting-admin"
                     
                     // 获取文件夹大小
                     def fileSize = sh(
@@ -206,25 +206,25 @@ pipeline {
                         // 压缩本地编译产物并传输到远程服务器
                         sh """
                             cd ${currentWorkspace}
-                            tar -czf hbe_backend.tar.gz hbe_backend
+                            tar -czf lighting-admin.tar.gz lighting-admin
                         """
                         
                         // 传输压缩包到远程服务器
                         sh """
-                            scp -P ${config.port} -o StrictHostKeyChecking=no hbe_backend.tar.gz ec2-user@${config.host}:${remotePath}
+                            scp -P ${config.port} -o StrictHostKeyChecking=no lighting-admin.tar.gz ec2-user@${config.host}:${remotePath}
                         """
                         
                         // 在远程服务器上执行所有操作：备份、解压、重命名、清理
                         sh """
                             ssh -p ${config.port} -o StrictHostKeyChecking=no ec2-user@${config.host} '
                                 DEPLOY_PATH="${remotePath}"
-                                FOLDER_PATH="\$DEPLOY_PATH/hbe_backend"
+                                FOLDER_PATH="\$DEPLOY_PATH/"
                                 
                                 # 备份旧版本文件夹
                                 echo "备份旧版本文件夹..."
                                 if [ -d "\$FOLDER_PATH" ]; then
                                     TIMESTAMP=\$(date +%Y%m%d%H%M%S)
-                                    BACKUP_FOLDER="\$DEPLOY_PATH/hbe_backend_\$TIMESTAMP"
+                                    BACKUP_FOLDER="\$DEPLOY_PATH/lighting-admin_\$TIMESTAMP"
                                     sudo mv "\$FOLDER_PATH" "\$BACKUP_FOLDER"
                                     echo "已备份旧文件夹到: \$BACKUP_FOLDER"
                                 else
@@ -233,8 +233,8 @@ pipeline {
                                 
                                 # 解压新版本
                                 cd ${remotePath}
-                                sudo tar -xzf hbe_backend.tar.gz
-                                sudo rm -f hbe_backend.tar.gz
+                                sudo tar -xzf lighting-admin.tar.gz
+                                sudo rm -f lighting-admin.tar.gz
                                 echo "部署完成"
                                 
                                 # 判断备份文件夹数量是否超过4个，超过则删除时间戳最早的
@@ -247,7 +247,7 @@ pipeline {
                             '
                         """
                         sh """
-                        rm -f hbe_backend.tar.gz
+                        rm -f lighting-admin.tar.gz
                         echo "已清理本地压缩包文件"
                         """                       
                         // 创建或更新 meta 文件
