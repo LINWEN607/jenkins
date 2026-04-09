@@ -75,6 +75,8 @@ pipeline {
                             modifiedApps.add('frontend')
                         } else if (file.startsWith('app/csms1.6/')) {
                             modifiedApps.add('csms1.6')
+                        } else if (file.startsWith('app/backend/')) {
+                            modifiedApps.add('backend')
                         }
                     }
 
