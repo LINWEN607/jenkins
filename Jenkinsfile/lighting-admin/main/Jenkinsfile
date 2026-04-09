@@ -218,7 +218,7 @@ pipeline {
                         sh """
                             ssh -p ${config.port} -o StrictHostKeyChecking=no ec2-user@${config.host} '
                                 DEPLOY_PATH="${remotePath}"
-                                FOLDER_PATH="\$DEPLOY_PATH/"
+                                FOLDER_PATH="\$DEPLOY_PATH/lighting-admin"
                                 
                                 # 备份旧版本文件夹
                                 echo "备份旧版本文件夹..."
