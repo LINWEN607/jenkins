@@ -168,7 +168,7 @@ pipeline {
                         sh """
                             ssh -o StrictHostKeyChecking=no root@${config.host} '
                                 DEPLOY_PATH="${remotePath}"
-                                FOLDER_PATH="\$DEPLOY_PATH/AuraCharge_backend"
+                                FOLDER_PATH="\$DEPLOY_PATH/AuraCharge/AuraCharge_backend"
                                 
                                 # 备份旧版本文件夹
                                 echo "备份旧版本文件夹..."
@@ -188,9 +188,9 @@ pipeline {
                                 echo "部署完成"
                                 
                                 # 判断备份文件夹数量是否超过4个，超过则删除时间戳最早的
-                                BACKUP_COUNT=\$(ls -d \$DEPLOY_PATH/AuraCharge_backend* 2>/dev/null | wc -l)
+                                BACKUP_COUNT=\$(ls -d \$DEPLOY_PATH/AuraCharge/AuraCharge_backend* 2>/dev/null | wc -l)
                                 if [ \$BACKUP_COUNT -gt 4 ]; then
-                                    OLDEST_FOLDER=\$(ls -td \$DEPLOY_PATH/AuraCharge_backend* | tail -1)
+                                    OLDEST_FOLDER=\$(ls -td \$DEPLOY_PATH/AuraCharge/AuraCharge_backend* | tail -1)
                                     rm -rf "\$OLDEST_FOLDER"
                                     echo "已删除最早的备份文件夹: \$OLDEST_FOLDER"
                                 fi
