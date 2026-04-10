@@ -78,6 +78,8 @@ pipeline {
                             modifiedApps.add('csms1.6')
                         } else if (file.startsWith('app/backend/')) {
                             modifiedApps.add('backend')
+                        } else if (file.startsWith('app/jobs/')) {
+                            modifiedApps.add('jobs')
                         }
                     }
 
