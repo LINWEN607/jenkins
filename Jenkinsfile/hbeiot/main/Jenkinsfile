@@ -135,7 +135,7 @@ pipeline {
                     def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                     
                     dingtalk (
-                        robot: 'cicd构建推送-开发环境',
+                        robot: 'cicd构建推送-生产环境',
                         type: 'MARKDOWN',
                         title: '部署确认通知',
                         text: [
@@ -159,7 +159,7 @@ pipeline {
                     
                     // 等待人工确认
                     input(
-                        message: "请确认是否部署到 ${env.BRANCH_NAME} 环境？\nCommit: ${shortCommit}\n信息: ${commitMessage}",
+                        message: "请确认是否将${env.PROJECT_NAME}部署到 47.254.37.112 生产环境？\nCommit: ${shortCommit}\n信息: ${commitMessage}",
                         ok: '确认部署',
                         submitter: 'linwen,dlcios'
                     )
