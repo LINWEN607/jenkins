@@ -204,7 +204,6 @@ pipeline {
                                     sudo mkdir -p ${remotePath}/scp
                                     sudo chown -R ec2-user:ec2-user ${remotePath}/scp
                                     sudo chown -R ec2-user:ec2-user ${remotePath}
-                                    sudo chown -R ec2-user:ec2-user /data/backup/hbe_ec_household/${app}
                                 '
                             """
 
@@ -223,6 +222,7 @@ pipeline {
                                     echo "备份旧版本文件..."
                                     if [ -f "\$FILE_PATH" ]; then
                                         sudo mkdir -p /data/backup/hbe_ec_household/${app}
+                                        sudo chown -R ec2-user:ec2-user /data/backup/hbe_ec_household/${app}
                                         TIMESTAMP=\$(date +%Y%m%d%H%M%S)
                                         BACKUP_FILE="/data/backup/hbe_ec_household/${app}/\$BASE_NAME-\$TIMESTAMP"
                                         sudo cp "\$FILE_PATH" "\$BACKUP_FILE"
