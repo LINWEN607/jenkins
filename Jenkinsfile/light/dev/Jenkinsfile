@@ -71,11 +71,11 @@ pipeline {
 
                     // 遍历所有修改的文件，确定它们属于哪些模块
                     changedFiles.each { file ->
-                        if (file.startsWith('app/admin/')) {
+                        if (file.startsWith('app/admin/') || file.startsWith('api/admin/')) {
                             modifiedApps.add('admin')
-                        } else if (file.startsWith('app/csms/')) {
+                        } else if (file.startsWith('app/csms/') || file.startsWith('api/csms/')) {
                             modifiedApps.add('csms')
-                        } else if (file.startsWith('app/mobile/')) {
+                        } else if (file.startsWith('app/mobile/') || file.startsWith('api/mobile/')) {
                             modifiedApps.add('mobile')
                         }
                     }
