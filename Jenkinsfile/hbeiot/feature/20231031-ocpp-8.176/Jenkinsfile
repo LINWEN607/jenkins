@@ -172,7 +172,7 @@ pipeline {
                     def deployConfig = [
                         nono: [host: "2.37.215.246", port: 22,sshCredentialId: "aliyun-key"],
                         main: [host: "47.254.37.112", port: 1022,sshCredentialId: "main-ssh-key"],
-                        "feature/20231031-ocpp-8.176": [host: "120.77.170.190",port: 1022, sshCredentialId: "Prd-aliyun-key"]
+                        "feature/20231031-ocpp-8.176": [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
                     ]
 
                     def targetBranch = env.BRANCH_NAME
