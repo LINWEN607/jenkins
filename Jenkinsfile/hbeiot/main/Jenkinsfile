@@ -231,7 +231,7 @@ pipeline {
                                 "
                                 
                                 # 再复制文件
-                                scp -P ${config.port} ${currentWorkspace}/app/${app}/main root@${config.host}:${remotePath}/
+                                scp -O -P ${config.port} ${currentWorkspace}/app/${app}/main root@${config.host}:${remotePath}/
                                 
                                 # 最后启动服务
                                 ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
