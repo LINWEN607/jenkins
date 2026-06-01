@@ -170,8 +170,8 @@ pipeline {
             steps {
                 script {
                     def deployConfig = [
-                        dev: [host: "52.37.215.246", port: 22,sshCredentialId: "Prd-aliyun-key"],
-                        main: [host: "47.254.37.112", port: 1022,sshCredentialId: "main-ssh-key"],
+                        dev01: [host: "52.37.215.246", port: 22,sshCredentialId: "Prd-key"],
+                        main: [host: "47.254.37.112", port: 1022,sshCredentialId: "Prd-aliyun-key"],
                         "feature/20231031-ocpp-8.176": [host: "120.77.170.190",port: 1022, sshCredentialId: "dev-ssh-key"]
                     ]
 
