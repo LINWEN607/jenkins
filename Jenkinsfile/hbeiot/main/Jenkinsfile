@@ -135,7 +135,7 @@ pipeline {
                     def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                     
                     dingtalk (
-                        robot: 'cicd构建推送-生产环境',
+                        robot: 'cicd构建推送-生产阿里云',
                         type: 'MARKDOWN',
                         title: '部署确认通知',
                         text: [
@@ -288,7 +288,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-生产环境',
+                    robot: 'cicd构建推送-生产阿里云',
                     type: 'MARKDOWN',
                     title: '构建成功通知',
                     text: [
@@ -325,7 +325,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-生产环境',
+                    robot: 'cicd构建推送-生产阿里云',
                     type: 'MARKDOWN',
                     title: '构建失败通知',
                     text: [
@@ -362,7 +362,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-生产环境1',
+                    robot: 'cicd构建推送-生产阿里云1',
                     type: 'MARKDOWN',
                     title: '构建不稳定通知',
                     text: [
@@ -399,7 +399,7 @@ pipeline {
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
                 dingtalk (
-                    robot: 'cicd构建推送-生产环境1',
+                    robot: 'cicd构建推送-生产阿里云1',
                     type: 'MARKDOWN',
                     title: '构建中止通知',
                     text: [
