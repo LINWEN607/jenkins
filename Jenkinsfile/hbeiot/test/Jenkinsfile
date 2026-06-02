@@ -1,0 +1,393 @@
+def userPhoneMap = [
+    'lins': '13612373427',
+    'dlcios': '13048932770',
+    'wangwu': '13700137000',
+    'linwen': '18888888888'
+]
+pipeline {
+    agent {
+        node {
+            label "master"
+        }
+    }
+    tools {
+        go 'go1.23'
+    }
+    environment {
+        PATH = "${env.GOPATH}:${env.PATH}"
+        SKIP_DEPLOY = "false"
+    }
+    stages {
+        stage('1.拉取代码') {
+            steps {
+                script {
+                    def git_address = "http://10.255.5.150/cloud-platform/hbeiot.git"
+                    def git_auth = "git-root"
+                    def git_branch = env.BRANCH_NAME
+                    git(
+                        branch: git_branch,
+                        credentialsId: git_auth,
+                        url: git_address
+                    )
+                    env.PROJECT_NAME = sh(
+                        script: """
+                            echo ${env.GIT_URL} | awk -F'/' '{print \$NF}' | sed 's/\\..*//'
+                        """,
+                        returnStdout: true
+                    ).trim()
+                    env.GIT_COMMIT = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+                    env.BUILD_TIME = sh(
+                        script: 'date "+%Y-%m-%d %H:%M:%S"',
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
+        stage('2.判断修改模块') {
+            steps {
+                script {
+                    def changedFiles = sh(
+                        script: 'git diff --name-only HEAD~1',
+                        returnStdout: true
+                    ).trim().split('\n')
+                    def modifiedApps = [] as Set
+                    changedFiles.each { file ->
+                        if (file.startsWith('app/family/')) {
+                            modifiedApps.add('family')
+                        } else if (file.startsWith('app/charges/')) {
+                            modifiedApps.add('charges')
+                        } else if (file.startsWith('app/backend/')) {
+                            modifiedApps.add('backend')
+                        } else if (file.startsWith('app/jobs/')) {
+                            modifiedApps.add('jobs')
+                        } else if (file.startsWith('app/frontend/')) {
+                            modifiedApps.add('frontend')
+                        }
+                    }
+                    if (modifiedApps.isEmpty()) {
+                        env.APPS_TO_BUILD = "未检测到任何模块被修改"
+                        env.SKIP_DEPLOY = "true"
+                        echo "未检测到任何模块被修改，跳过后续阶段。"
+                        return
+                    } else {
+                        env.APPS_TO_BUILD = modifiedApps.join(',')
+                        echo "本次构建的模块: ${env.APPS_TO_BUILD}"
+                    }
+                }
+            }
+        }
+        stage('3.编译程序') {
+            when {
+                expression { env.SKIP_DEPLOY != "true" }
+            }
+            steps {
+                script {
+                    def apps = env.APPS_TO_BUILD.split(',')
+                    apps.each { app ->
+                        echo "开始构建模块: ${app}"
+                        sh """
+                            cd app/${app}
+                            export GOPROXY=https://goproxy.cn,direct
+                            go build -o main main.go
+                            echo "计算哈希值..."
+                            sha256sum main > main.sha256
+                            stat -c %s main > main.size
+                        """
+                    }
+                }
+            }
+        }
+        stage('定时部署判断') {
+            when {
+                expression { env.SKIP_DEPLOY != "true" }
+            }
+            steps {
+                script {
+                    def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                    def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                    def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                    // 计算今天 21:00 的时间戳（毫秒）
+                    def cal = Calendar.getInstance()
+                    cal.set(Calendar.HOUR_OF_DAY, 21)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    def deployTime = cal.getTimeInMillis()
+                    def now = System.currentTimeMillis()
+                    def waitMinutes = (deployTime - now) / 1000 / 60
+                    // 根据当前时间动态决定通知标题和描述
+                    def deployTitle = (now < deployTime) ? "📅 定时部署通知" : "🚀 立即部署通知"
+                    def deployDesc = (now < deployTime)
+                        ? "将于今日 **21:00** 自动部署，如需取消请到 Jenkins 中止任务"
+                        : "当前时间已过 21:00，**立即执行部署**"
+                    dingtalk (
+                        robot: 'cicd构建推送-生产阿里云',
+                        type: 'MARKDOWN',
+                        title: deployTitle,
+                        text: [
+                            """### ${deployTitle}
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APPS_TO_BUILD}
+- **分支**：${env.BRANCH_NAME}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **提交人**：${commitAuthor}
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> ${deployDesc}"""
+                        ],
+                        at: [phoneNumber]
+                    )
+                    if (now < deployTime) {
+                        echo "当前时间未到 21:00，等待 ${waitMinutes.toInteger()} 分钟后自动部署..."
+                        waitUntil {
+                            System.currentTimeMillis() >= deployTime
+                        }
+                    } else {
+                        echo "当前时间已过 21:00，立即部署"
+                    }
+                }
+            }
+        }
+        stage('4.部署程序') {
+            when {
+                expression { env.SKIP_DEPLOY != "true" }
+            }
+            steps {
+                script {
+                    def deployConfig = [
+                        dev01 [host: "52.37.215.246", port: 22, sshCredentialId: "Prd-key"],
+                        main: [host: "47.254.37.112", port: 1022,sshCredentialId: "Prd-aliyun-key"],
+                        "feature/20231031-ocpp-8.176": [host: "120.77.170.190", port: 1022, sshCredentialId: "dev-ssh-key"]
+                    ]
+                    def targetBranch = env.BRANCH_NAME
+                    def config = deployConfig[targetBranch]
+                    def apps = env.APPS_TO_BUILD.split(',')
+                    if (!config) {
+                        error("未配置该分支的部署信息: ${targetBranch}")
+                    }
+                    def currentWorkspace = pwd()
+                    echo "当前工作空间路径: ${currentWorkspace}"
+                    apps.each { app ->
+                        def remotePath = "/usr/local/www/go/hbeiot/app/${app}"
+                        def fileSize = sh(
+                            script: "cat ${currentWorkspace}/app/${app}/main.size",
+                            returnStdout: true
+                        ).trim()
+                        def fileHash = sh(
+                            script: "cat ${currentWorkspace}/app/${app}/main.sha256 | cut -d' ' -f1",
+                            returnStdout: true
+                        ).trim()
+                        sshagent([config.sshCredentialId]) {
+                            // 备份旧版本文件
+                            sh """
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} '
+                                    BASE_NAME="hbeiot"
+                                    DEPLOY_PATH="${remotePath}"
+                                    FILE_PATH="\$DEPLOY_PATH/main"
+                                    echo "备份旧版本文件..."
+                                    if [ -f "\$FILE_PATH" ]; then
+                                        sudo mkdir -p /data/backup/hbeiot/${app}
+                                        TIMESTAMP=\$(date +%Y%m%d%H%M%S)
+                                        BACKUP_FILE="/data/backup/hbeiot/${app}/\$BASE_NAME-\$TIMESTAMP"
+                                        sudo cp "\$FILE_PATH" "\$BACKUP_FILE"
+                                        echo "已备份旧文件到: \$BACKUP_FILE"
+                                        sudo ls -t /data/backup/hbeiot/${app}/\$BASE_NAME-* 2>/dev/null | tail -n +4 | xargs -r sudo rm -f
+                                        echo "已清理多余备份文件"
+                                    else
+                                        echo "未找到旧版本文件"
+                                    fi
+                                '
+                            """
+                            // 部署新程序并重启服务
+                            sh """
+                                echo '开始部署模块: ${app}...'
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                    echo '停止旧服务...'
+                                    sudo systemctl stop hbeiot_${app}
+                                "
+                                scp -P ${config.port} ${currentWorkspace}/app/${app}/main root@${config.host}:${remotePath}/
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                    echo '启动新程序...'
+                                    sudo systemctl start hbeiot_${app}
+                                "
+                            """
+                            // 写入 meta 日志
+                            def commitMessage = sh(
+                                script: 'git log -1 --pretty=%B',
+                                returnStdout: true
+                            ).trim()
+                            def buildStatus = currentBuild.result ?: "SUCCESS"
+                            def metaContent = """# 构建元数据信息
+软件版本号: ${app}_${env.BUILD_TIME.replaceAll(" ", "_")}
+发布日期和时间: ${env.BUILD_TIME}
+归属的项目: ${env.PROJECT_NAME}
+代码仓库: ${env.GIT_URL}
+分支: ${env.BRANCH_NAME}
+对应 revision: ${env.GIT_COMMIT}
+二进制文件大小: ${fileSize} bytes
+二进制文件 hash(sha256): ${fileHash}
+主要修改描述: ${commitMessage}
+构建时间: ${new Date().format("yyyy-MM-dd HH:mm:ss")}
+构建状态: ${buildStatus}
+"""
+                            sh """
+                                ssh -p ${config.port} -o StrictHostKeyChecking=no root@${config.host} "
+                                    echo '${metaContent}' | sudo tee -a ${remotePath}/meta.log
+                                "
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                // 无变更时发跳过通知，否则发正常成功通知
+                if (env.SKIP_DEPLOY == "true") {
+                    def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                    def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                    dingtalk (
+                        robot: 'cicd构建推送-生产阿里云',
+                        type: 'MARKDOWN',
+                        title: '无变更跳过通知',
+                        text: [
+                            """### ⏭ 无服务变更，跳过部署
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **分支**：${env.BRANCH_NAME}
+- **修改人**：${commitAuthor}
+> ${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 未检测到任何模块被修改，已跳过编译和部署阶段"""
+                        ],
+                        at: [phoneNumber]
+                    )
+                    return
+                }
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送-生产阿里云',
+                    type: 'MARKDOWN',
+                    title: '构建成功通知',
+                    text: [
+                        """###  构建成功
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APPS_TO_BUILD}
+- **任务状态**：构建成功
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+**操作建议**：
+- 可到对应项目分支的环境测试验证功能。（/data/backup/${env.PROJECT_NAME}/服务名称）此路径备份此前三个版本的编译文件，可按时间戳区分"""
+                    ],
+                    at: [phoneNumber]
+                )
+            }
+        }
+        failure {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送-生产阿里云',
+                    type: 'MARKDOWN',
+                    title: '构建失败通知',
+                    text: [
+                        """###  构建失败
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APPS_TO_BUILD}
+- **任务状态**：构建失败
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+**操作建议**：
+- 请联系林文进行排查"""
+                    ],
+                    at: [phoneNumber]
+                )
+            }
+        }
+        unstable {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送-生产阿里云1',
+                    type: 'MARKDOWN',
+                    title: '构建不稳定通知',
+                    text: [
+                        """###  构建不稳定
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APPS_TO_BUILD}
+- **任务状态**：构建不稳定
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+**操作建议**：
+- 请联系林文进行排查"""
+                    ],
+                    at: [phoneNumber]
+                )
+            }
+        }
+        aborted {
+            script {
+                def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
+                def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+                def phoneNumber = userPhoneMap[commitAuthor] ?: ''
+                dingtalk (
+                    robot: 'cicd构建推送-生产阿里云1',
+                    type: 'MARKDOWN',
+                    title: '构建中止通知',
+                    text: [
+                        """###  构建被中止
+- **项目名称**：${env.PROJECT_NAME}
+- **任务名称**：${env.JOB_NAME}
+- **构建服务**：${env.APPS_TO_BUILD}
+- **任务状态**：构建中止
+- **任务持续时间**：${currentBuild.durationString}
+- **Commit ID**：${shortCommit}
+- **Commit 信息**：${commitMessage}
+- **修改人**：${commitAuthor}
+> 构建时间：${new Date().format("yyyy-MM-dd HH:mm:ss")}
+> 构建人：${buildUser}
+**操作建议**：
+- 请确认是否是人为中止或交互式中止（开发环境上线前期部署阶段需交互式确认）"""
+                    ],
+                    at: [phoneNumber]
+                )
+            }
+        }
+    }
+}
