@@ -302,7 +302,7 @@ pipeline {
             script {
                 def buildUser = currentBuild.getBuildCauses()[0].userId ?: 'System'
                 def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                def commitMessage = sh(script: 'git log -1 --pretty=%s', returnStdout: true).trim()
                 def commitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
                 // 获取提交者的手机号
                 def phoneNumber = userPhoneMap[commitAuthor] ?: ''
